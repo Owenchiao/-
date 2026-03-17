@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (auth.uid)
+    // Fields: uid, email, displayName, selectedTeamId
+    //
+    // Collection: teams
+    // Document ID: teamId (e.g., "1A")
+    // Fields: id, name, inventory
+    //
+    // Collection: rooms
+    // Document ID: roomId
+    // Fields: status, players, turn, currentRound, logs, winner, createdAt, battleState
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "chiaoowen@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.email is string;
+    }
+
+    function isValidTeam(data) {
+      return data.keys().hasAll(['id', 'name', 'inventory']) &&
+             data.id is string &&
+             data.name is string;
+    }
+
+    function isValidRoom(data) {
+      return data.keys().hasAll(['status', 'players', 'createdAt']) &&
+             data.status in ['waiting', 'selecting_chars', 'battle', 'finished'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /teams/{teamId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidTeam(request.resource.data);
+      allow delete: if isAuthenticated();
+    }
+
+    match /rooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidRoom(request.resource.data);
+      allow update: if isAuthenticated() && isValidRoom(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

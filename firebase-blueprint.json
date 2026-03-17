@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "Team": {
+      "title": "Team",
+      "description": "Represents a camp/class team (1A-8B).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "inventory": {
+          "type": "object",
+          "properties": {
+            "characters": { "type": "array", "items": { "type": "string" } },
+            "items": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      "required": ["id", "name", "inventory"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Represents a logged-in user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "selectedTeamId": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Represents a battle room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string", "enum": ["waiting", "selecting_chars", "battle", "finished"] },
+        "players": { "type": "array", "items": { "type": "object" } },
+        "turn": { "type": "string" },
+        "currentRound": { "type": "number" },
+        "logs": { "type": "array", "items": { "type": "string" } },
+        "winner": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "battleState": { "type": "object" }
+      },
+      "required": ["id", "status", "players", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/teams/{teamId}": {
+      "schema": "Team",
+      "description": "Collection of team data."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles."
+    },
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Collection of battle rooms."
+    }
+  }
+}

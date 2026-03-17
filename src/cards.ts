@@ -1,0 +1,104 @@
+import { CharacterCard } from './types';
+
+export const CARDS: CharacterCard[] = [
+  // 【飛哥家 - 白板 C】
+  { id: "char_phineas_c", type: "character", name: "飛哥", faction: "飛哥家", rarity: "C", atk: 110, hp: 110, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_ferb_c", type: "character", name: "小佛", faction: "飛哥家", rarity: "C", atk: 115, hp: 105, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_linda_c", type: "character", name: "琳達媽媽", faction: "飛哥家", rarity: "C", atk: 120, hp: 100, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_lawrence_c", type: "character", name: "勞倫斯爸爸", faction: "飛哥家", rarity: "C", atk: 60, hp: 180, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_buford_c", type: "character", name: "布佛", faction: "飛哥家", rarity: "C", atk: 70, hp: 170, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_jeremy_c", type: "character", name: "傑洛米", faction: "飛哥家", rarity: "C", atk: 80, hp: 160, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_baljeet_c", type: "character", name: "巴捷", faction: "飛哥家", rarity: "C", atk: 90, hp: 140, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_candace_c", type: "character", name: "凱蒂斯", faction: "飛哥家", rarity: "C", atk: 95, hp: 135, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_perry_c", type: "character", name: "泰瑞", faction: "飛哥家", rarity: "C", atk: 100, hp: 130, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_phineas_v2_c", type: "character", name: "飛哥（二階）", faction: "飛哥家", rarity: "C", atk: 145, hp: 120, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+
+  // 【杜芬舒斯家 - 白板 C】
+  { id: "char_doof_c", type: "character", name: "杜芬舒斯博士", faction: "杜芬舒斯家", rarity: "C", atk: 100, hp: 130, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_monogram_c", type: "character", name: "莫諾格拉姆少校", faction: "杜芬舒斯家", rarity: "C", atk: 105, hp: 120, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_agent_p_c", type: "character", name: "特務P", faction: "杜芬舒斯家", rarity: "C", atk: 110, hp: 110, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_carl_c", type: "character", name: "卡爾", faction: "杜芬舒斯家", rarity: "C", atk: 50, hp: 200, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_vanessa_c", type: "character", name: "凡妮莎", faction: "杜芬舒斯家", rarity: "C", atk: 55, hp: 195, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_charlene_c", type: "character", name: "夏琳", faction: "杜芬舒斯家", rarity: "C", atk: 60, hp: 190, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_roger_c", type: "character", name: "羅傑", faction: "杜芬舒斯家", rarity: "C", atk: 95, hp: 130, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_norm_c", type: "character", name: "諾姆機器人", faction: "杜芬舒斯家", rarity: "C", atk: 80, hp: 150, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_peter_c", type: "character", name: "熊貓彼得", faction: "杜芬舒斯家", rarity: "C", atk: 90, hp: 140, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_doof_v2_c", type: "character", name: "杜芬舒斯（二階）", faction: "杜芬舒斯家", rarity: "C", atk: 140, hp: 130, skillName: null, skillDescription: "消耗一個能量點，友方場上有一張杜芬舒斯博士，使用此卡強化杜芬舒斯", skillEnergyCost: null, skillTrigger: "unknown", skillType: "unknown", needsManualReview: true },
+
+  // 【美眉家 - 白板 C】
+  { id: "char_isabella_c", type: "character", name: "伊莎貝拉", faction: "美眉家", rarity: "C", atk: 125, hp: 95, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_katie_c", type: "character", name: "凱蒂", faction: "美眉家", rarity: "C", atk: 130, hp: 90, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_gretchen_c", type: "character", name: "貴錢", faction: "美眉家", rarity: "C", atk: 135, hp: 85, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_holly_c", type: "character", name: "霍麗", faction: "美眉家", rarity: "C", atk: 85, hp: 155, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_milly_c", type: "character", name: "美麗", faction: "美眉家", rarity: "C", atk: 90, hp: 150, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_ginger_c", type: "character", name: "小金", faction: "美眉家", rarity: "C", atk: 95, hp: 145, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_melissa_c", type: "character", name: "梅莉莎", faction: "美眉家", rarity: "C", atk: 110, hp: 120, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_colette_c", type: "character", name: "柯蕾特", faction: "美眉家", rarity: "C", atk: 115, hp: 115, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_brigitte_c", type: "character", name: "布麗姬", faction: "美眉家", rarity: "C", atk: 120, hp: 110, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+  { id: "char_isabella_v2_c", type: "character", name: "伊莎貝拉（二階）", faction: "美眉家", rarity: "C", atk: 150, hp: 120, skillName: null, skillDescription: "X", skillEnergyCost: null, skillTrigger: "none", skillType: "none", needsManualReview: false },
+
+  // 【飛哥家 - 普通 R】
+  { id: "char_baljeet_r", type: "character", name: "巴克巴克森", faction: "飛哥家", rarity: "R", atk: 60, hp: 210, skillName: null, skillDescription: "攻擊前恢復該角色20點最大生命", skillEnergyCost: 0, skillTrigger: "before_attack", skillType: "heal_self_fixed", needsManualReview: false },
+  { id: "char_buford_suzy_r", type: "character", name: "恐懼閃開（扮成蘇西的布佛）", faction: "飛哥家", rarity: "R", atk: 80, hp: 180, skillName: null, skillDescription: "攻擊力提升20點（限用一次）", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "atk_up_fixed", needsManualReview: false },
+  { id: "char_reginald_r", type: "character", name: "惡作劇大王雷吉諾", faction: "飛哥家", rarity: "R", atk: 110, hp: 150, skillName: null, skillDescription: "使用技能時，擲硬幣一次為正面即獲得能量點1點", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "gain_energy_on_coin", needsManualReview: false },
+  { id: "char_suzy_r", type: "character", name: "腹黑蘇西", faction: "飛哥家", rarity: "R", atk: 100, hp: 160, skillName: null, skillDescription: "對敵人造成其角色攻擊力10%的傷害", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "deal_percent_enemy_atk", needsManualReview: false },
+  { id: "char_candace_charge_r", type: "character", name: "衝鋒凱蒂斯", faction: "飛哥家", rarity: "R", atk: 120, hp: 140, skillName: null, skillDescription: "該次普通攻擊濺射傷害變30%", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "splash_30_percent", needsManualReview: false },
+  { id: "char_bigfoot_r", type: "character", name: "傳說中的大腳", faction: "飛哥家", rarity: "R", atk: 70, hp: 190, skillName: null, skillDescription: "對敵人造成其角色自身原生命力的10%傷害", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "deal_percent_enemy_hp", needsManualReview: false },
+  { id: "char_kevin_r", type: "character", name: "斑馬凱文", faction: "飛哥家", rarity: "R", atk: 95, hp: 170, skillName: null, skillDescription: "拋擲兩次硬幣，可獲得同為正面朝上的額外放置能量點次數", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "coin_energy", needsManualReview: false },
+
+  // 【杜芬舒斯家 - 普通 R】
+  { id: "char_doof_puff_r", type: "character", name: "普芬洛斯博士", faction: "杜芬舒斯家", rarity: "R", atk: 70, hp: 200, skillName: null, skillDescription: "回復備戰區一隻角色20點生命值", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "heal_sub_fixed", needsManualReview: false },
+  { id: "char_baby_head_r", type: "character", name: "巨大漂浮的嬰兒頭", faction: "杜芬舒斯家", rarity: "R", atk: 90, hp: 170, skillName: null, skillDescription: "攻擊力提升20點（限用一次）", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "atk_up_fixed", needsManualReview: false },
+  { id: "char_ronnie_r", type: "character", name: "羅尼博士", faction: "杜芬舒斯家", rarity: "R", atk: 120, hp: 140, skillName: null, skillDescription: "使用技能時，擲硬幣3次，依據正面次數額外獲得金幣", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "gain_gold_on_coin", needsManualReview: false },
+  { id: "char_carl_pro_r", type: "character", name: "轉正職卡爾", faction: "杜芬舒斯家", rarity: "R", atk: 110, hp: 150, skillName: null, skillDescription: "對敵人造成其角色攻擊力30%的傷害", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "deal_percent_enemy_atk", needsManualReview: false },
+  { id: "char_meap_r", type: "character", name: "宇宙特務米噗", faction: "杜芬舒斯家", rarity: "R", atk: 80, hp: 180, skillName: null, skillDescription: "本回合生命力提升20點（限用一次）", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "hp_up_fixed", needsManualReview: false },
+  { id: "char_tiny_r", type: "character", name: "微小博士", faction: "杜芬舒斯家", rarity: "R", atk: 130, hp: 130, skillName: null, skillDescription: "該次普通攻擊濺射傷害變30%", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "splash_30_percent", needsManualReview: false },
+  { id: "char_mitch_r", type: "character", name: "外星偷獵者米契", faction: "杜芬舒斯家", rarity: "R", atk: 105, hp: 160, skillName: null, skillDescription: "從牌庫附給自己的備戰角色其中1張「基本對應能量」卡", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "attach_energy_to_sub", needsManualReview: false },
+
+  // 【美眉家 - 普通 R】
+  { id: "char_katie_active_r", type: "character", name: "活力凱蒂", faction: "美眉家", rarity: "R", atk: 65, hp: 220, skillName: null, skillDescription: "攻擊前恢復該角色10點最大生命", skillEnergyCost: 0, skillTrigger: "before_attack", skillType: "heal_self_fixed", needsManualReview: false },
+  { id: "char_holly_guard_r", type: "character", name: "守護霍麗", faction: "美眉家", rarity: "R", atk: 85, hp: 190, skillName: null, skillDescription: "攻擊力提升25點（限用一次）", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "atk_up_fixed", needsManualReview: false },
+  { id: "char_ginger_lucky_r", type: "character", name: "超旺小金", faction: "美眉家", rarity: "R", atk: 115, hp: 160, skillName: null, skillDescription: "使用技能時，有機率額外獲得金幣 / 能量值", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "unknown", needsManualReview: true },
+  { id: "char_brigitte_strong_r", type: "character", name: "堅強布麗姬", faction: "美眉家", rarity: "R", atk: 75, hp: 200, skillName: null, skillDescription: "本回合防禦力提升20%（限用一次）", skillEnergyCost: 0, skillTrigger: "on_defend", skillType: "self_damage_reduction", needsManualReview: false },
+  { id: "char_isabella_charming_r", type: "character", name: "迷人伊莎貝拉", faction: "美眉家", rarity: "R", atk: 125, hp: 150, skillName: null, skillDescription: "該次普通攻擊濺射傷害變30%", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "splash_30_percent", needsManualReview: false },
+  { id: "char_milly_beautiful_r", type: "character", name: "俐落美麗", faction: "美眉家", rarity: "R", atk: 105, hp: 170, skillName: null, skillDescription: "對敵人造成其角色攻擊力30%的傷害", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "deal_percent_enemy_atk", needsManualReview: false },
+  { id: "char_josette_r", type: "character", name: "老手喬賽特", faction: "美眉家", rarity: "R", atk: 100, hp: 180, skillName: null, skillDescription: "從牌庫附給自己的備戰角色其中1張「基本對應能量」卡", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "attach_energy_to_sub", needsManualReview: false },
+
+  // 【飛哥家 - 稀有 U】
+  { id: "char_buford_punch_u", type: "character", name: "神拳布佛", faction: "飛哥家", rarity: "U", atk: 140, hp: 160, skillName: null, skillDescription: "攻擊時若自身生命值低於50，本次傷害額外增加30點", skillEnergyCost: 1, skillTrigger: "on_attack", skillType: "atk_if_low_hp", needsManualReview: false },
+  { id: "char_jeremy_ice_u", type: "character", name: "冰淇淋傑洛米", faction: "飛哥家", rarity: "U", atk: 100, hp: 200, skillName: null, skillDescription: "戰鬥開始時為備戰區的所有角色恢復10點生命值", skillEnergyCost: 1, skillTrigger: "on_enter", skillType: "battle_start_heal_sub", needsManualReview: false },
+  { id: "char_perry_mech_u", type: "character", name: "機械獸泰瑞（超時空之謎）", faction: "飛哥家", rarity: "U", atk: 130, hp: 170, skillName: null, skillDescription: "替換登場的第一回合，免疫該回合20點傷害", skillEnergyCost: 1, skillTrigger: "on_enter", skillType: "self_guard_first_turn", needsManualReview: false },
+  { id: "char_phineas_agent_u", type: "character", name: "特務飛哥（超時空之謎）", faction: "飛哥家", rarity: "U", atk: 120, hp: 180, skillName: null, skillDescription: "攻擊命中後，對敵方備戰區生命值最低的角色造成15點濺射傷害", skillEnergyCost: 1, skillTrigger: "after_attack", skillType: "hit_lowest_sub", needsManualReview: false },
+  { id: "char_charles_u", type: "character", name: "查爾斯冰冰四世", faction: "飛哥家", rarity: "U", atk: 90, hp: 210, skillName: null, skillDescription: "可以讓對方本回合無法使用技能", skillEnergyCost: 1, skillTrigger: "on_attack", skillType: "disable_enemy_skill", needsManualReview: false },
+
+  // 【杜芬舒斯家 - 稀有 U】
+  { id: "char_milly_cookie_u", type: "character", name: "可愛水果餅4277", faction: "杜芬舒斯家", rarity: "U", atk: 90, hp: 220, skillName: null, skillDescription: "擲硬幣2次，增加出現正面次數*30的傷害", skillEnergyCost: 1, skillTrigger: "on_attack", skillType: "coin_damage", needsManualReview: false },
+  { id: "char_mummy_u", type: "character", name: "起死回生木乃伊", faction: "杜芬舒斯家", rarity: "U", atk: 110, hp: 190, skillName: null, skillDescription: "可以選擇與備戰區角色交換位置，交換後雙方皆恢復20點生命", skillEnergyCost: 1, skillTrigger: "unknown", skillType: "swap_with_sub_and_heal", needsManualReview: true },
+  { id: "char_treehouse_u", type: "character", name: "格鬥樹屋", faction: "杜芬舒斯家", rarity: "U", atk: 140, hp: 160, skillName: null, skillDescription: "受到攻擊時（包含受到濺射傷害）對攻擊者造成10點固定傷害，並使其下一回合攻擊力增加5點", skillEnergyCost: 1, skillTrigger: "on_defend", skillType: "counter_damage_and_buff_next_atk", needsManualReview: false },
+  { id: "char_brownie_u", type: "character", name: "布隆尼", faction: "杜芬舒斯家", rarity: "U", atk: 100, hp: 200, skillName: null, skillDescription: "（無消耗）擊敗敵方角色後，本次對戰獲得的金幣額外增加5枚，對方金幣扣除2枚", skillEnergyCost: 1, skillTrigger: "after_battle", skillType: "bonus_gold_on_kill", needsManualReview: true },
+  { id: "char_vader_doof_u", type: "character", name: "黑武士杜芬舒斯", faction: "杜芬舒斯家", rarity: "U", atk: 150, hp: 150, skillName: null, skillDescription: "（無消耗）本次攻擊若將敵方生命值降至20以下，則直接判定敵方陣亡", skillEnergyCost: 1, skillTrigger: "on_attack", skillType: "execute_if_target_below_20", needsManualReview: true },
+  { id: "char_pinky_u", type: "character", name: "平平無奇吉娃娃平奇", faction: "杜芬舒斯家", rarity: "U", atk: 130, hp: 170, skillName: null, skillDescription: "（無消耗）攻擊時，有50%機率無視對方的防禦技能；擲硬幣正面則可無視直接造成全額傷害並額外增加5點威力", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "ignore_defense_coin", needsManualReview: true },
+
+  // 【美眉家 - 稀有 U】
+  { id: "char_candace_super_u", type: "character", name: "超能凱蒂", faction: "美眉家", rarity: "U", atk: 105, hp: 210, skillName: null, skillDescription: "本次攻擊攻擊力 x1.5", skillEnergyCost: 1, skillTrigger: "on_attack", skillType: "unknown", needsManualReview: true },
+  { id: "char_holly_sacred_u", type: "character", name: "神聖霍麗", faction: "美眉家", rarity: "U", atk: 135, hp: 180, skillName: null, skillDescription: "登場時強制將敵方場上角色與其備戰區隨機一名角色交換。（擲硬幣）若交換成功，該登場角色本回合受到的傷害增加15點", skillEnergyCost: 1, skillTrigger: "on_enter", skillType: "force_swap_main", needsManualReview: true },
+  { id: "char_ginger_wind_u", type: "character", name: "疾風小金", faction: "美眉家", rarity: "U", atk: 125, hp: 190, skillName: null, skillDescription: "進入防禦狀態時，本回合受到的所有傷害固定減少25點（最低不低於5點）", skillEnergyCost: 1, skillTrigger: "on_defend", skillType: "self_damage_reduction", needsManualReview: false },
+  { id: "char_brigitte_steel_u", type: "character", name: "鋼鐵布麗姬", faction: "美眉家", rarity: "U", atk: 95, hp: 220, skillName: null, skillDescription: "戰鬥結束後若此卡存活，立即為自身與一名備戰區隊友恢復15點生命值", skillEnergyCost: 1, skillTrigger: "after_battle", skillType: "heal_sub_fixed", needsManualReview: false },
+  { id: "char_isabella_goddess_u", type: "character", name: "女神伊莎貝拉", faction: "美眉家", rarity: "U", atk: 145, hp: 170, skillName: null, skillDescription: "若己方場上已有受傷角色，此卡登場時攻擊力提升30點，持續一輪", skillEnergyCost: 1, skillTrigger: "on_enter", skillType: "atk_up_fixed", needsManualReview: false },
+  { id: "char_candace_mars_u", type: "character", name: "火星女王凱蒂絲", faction: "美眉家", rarity: "U", atk: 80, hp: 230, skillName: null, skillDescription: "登場時使敵方當前角色在下一回合無法使用任何特殊技能", skillEnergyCost: 1, skillTrigger: "on_enter", skillType: "disable_enemy_skill", needsManualReview: false },
+  { id: "char_melissa_legend_u", type: "character", name: "傳奇梅莉莎", faction: "美眉家", rarity: "U", atk: 120, hp: 200, skillName: null, skillDescription: "當此卡在備戰區時，場上隊友受到致命傷時可強制保留10點生命值不陣亡", skillEnergyCost: 1, skillTrigger: "passive_sub", skillType: "protect_ally_in_sub", needsManualReview: false },
+
+  // 【飛哥家 - 金卡 UR】
+  { id: "char_phineas_singer_ur", type: "character", name: "最年輕出道歌手飛哥", faction: "飛哥家", rarity: "UR", atk: 160, hp: 180, skillName: null, skillDescription: "隨機抽取對方一張道具卡並佔為己有", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "random_steal_item", needsManualReview: false },
+
+  // 【杜芬舒斯家 - 金卡 UR】
+  { id: "char_norm_army_ur", type: "character", name: "諾姆機器人軍團", faction: "杜芬舒斯家", rarity: "UR", atk: 150, hp: 190, skillName: null, skillDescription: "對方備戰區中一隻角色受到自身攻擊力的傷害，對方可以選擇備戰區受影響對象", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "choose_sub_damage", needsManualReview: false },
+  { id: "char_doof_parallel_ur", type: "character", name: "平行時空的杜芬舒斯", faction: "杜芬舒斯家", rarity: "UR", atk: 170, hp: 170, skillName: null, skillDescription: "本回合自身受到傷害減少150點", skillEnergyCost: 2, skillTrigger: "on_defend", skillType: "self_damage_reduction", needsManualReview: false },
+  { id: "char_hendel_ur", type: "character", name: "就愛韓德爾", faction: "杜芬舒斯家", rarity: "UR", atk: 120, hp: 220, skillName: null, skillDescription: "道具卡效果2倍", skillEnergyCost: 2, skillTrigger: "passive_sub", skillType: "item_effect_double", needsManualReview: false },
+  { id: "char_squirrels_ur", type: "character", name: "褲子裡有松鼠！", faction: "杜芬舒斯家", rarity: "UR", atk: 120, hp: 220, skillName: null, skillDescription: "自相殘殺，對方主要角色攻擊備戰角色，對方可以選擇備戰區被攻擊對象", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "redirect_attack_to_sub", needsManualReview: false },
+
+  // 【美眉家 - 金卡 UR】
+  { id: "char_holly_queen_ur", type: "character", name: "聖光女王霍麗", faction: "美眉家", rarity: "UR", atk: 140, hp: 220, skillName: null, skillDescription: "強制結束對方回合；若場上三回合結束後我方僅剩此角色卡存活，則判我方勝利", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "end_enemy_turn_and_alt_win", needsManualReview: true },
+  { id: "char_isabella_eternal_ur", type: "character", name: "永恆女神伊莎貝拉", faction: "美眉家", rarity: "UR", atk: 155, hp: 200, skillName: null, skillDescription: "一回合內可攻擊兩次，但第二次只能給對方一半的傷害", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "double_attack_half_second", needsManualReview: false },
+  { id: "char_brigitte_myth_ur", type: "character", name: "神話布麗姬", faction: "美眉家", rarity: "UR", atk: 145, hp: 170, skillName: null, skillDescription: "反彈50%直接傷害給對方", skillEnergyCost: 2, skillTrigger: "on_defend", skillType: "reflect_direct_damage", needsManualReview: false },
+];

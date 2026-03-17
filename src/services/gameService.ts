@@ -1,0 +1,226 @@
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  setDoc, 
+  updateDoc, 
+  onSnapshot, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  serverTimestamp,
+  deleteDoc,
+  getDocFromServer
+} from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { Team, UserProfile, Room, PlayerState, BattleCharacter } from '../types';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: any[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+export const gameService = {
+  async testConnection() {
+    try {
+      await getDocFromServer(doc(db, 'test', 'connection'));
+    } catch (error) {
+      if(error instanceof Error && error.message.includes('the client is offline')) {
+        console.error("Please check your Firebase configuration. ");
+      }
+    }
+  },
+
+  async getUserProfile(uid: string): Promise<UserProfile | null> {
+    try {
+      const docRef = doc(db, 'users', uid);
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? docSnap.data() as UserProfile : null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+      return null;
+    }
+  },
+
+  async createUserProfile(profile: UserProfile) {
+    try {
+      await setDoc(doc(db, 'users', profile.uid), profile);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `users/${profile.uid}`);
+    }
+  },
+
+  async updateTeam(team: Team) {
+    try {
+      await setDoc(doc(db, 'teams', team.id), team);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `teams/${team.id}`);
+    }
+  },
+
+  async getTeam(teamId: string): Promise<Team | null> {
+    try {
+      const docRef = doc(db, 'teams', teamId);
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? docSnap.data() as Team : null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `teams/${teamId}`);
+      return null;
+    }
+  },
+
+  async createRoom(player: PlayerState): Promise<string> {
+    try {
+      const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const room: Partial<Room> = {
+        id: roomId,
+        status: 'waiting',
+        players: [player],
+        turn: player.uid,
+        currentRound: 1,
+        logs: [`小隊 ${player.teamId} 建立了房間 ${roomId}`],
+        createdAt: serverTimestamp(),
+        firstPlayerUid: player.uid
+      };
+      await setDoc(doc(db, 'rooms', roomId), room);
+      return roomId;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'rooms');
+      return '';
+    }
+  },
+
+  async joinRoom(roomId: string, player: PlayerState) {
+    try {
+      const roomRef = doc(db, 'rooms', roomId);
+      const roomSnap = await getDoc(roomRef);
+      if (!roomSnap.exists()) throw new Error('房間不存在');
+      
+      const room = roomSnap.data() as Room;
+      if (room.players.length >= 2) throw new Error('房間已滿');
+      if (room.players.find(p => p.uid === player.uid)) return;
+
+      const updatedPlayers = [...room.players, player];
+      const updates: any = { players: updatedPlayers };
+      
+      if (updatedPlayers.length === 2) {
+        updates.status = 'selecting_chars';
+        updates.logs = [...room.logs, `小隊 ${player.teamId} 加入了房間`];
+      }
+
+      await updateDoc(roomRef, updates);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomId}`);
+    }
+  },
+
+  async getRoom(roomId: string): Promise<Room | null> {
+    try {
+      const docRef = doc(db, 'rooms', roomId);
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? docSnap.data() as Room : null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `rooms/${roomId}`);
+      return null;
+    }
+  },
+
+  async updateRoom(roomId: string, updates: Partial<Room>) {
+    try {
+      await updateDoc(doc(db, 'rooms', roomId), updates);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomId}`);
+    }
+  },
+
+  subscribeToRoom(roomId: string, callback: (room: Room) => void) {
+    const roomRef = doc(db, 'rooms', roomId);
+    return onSnapshot(roomRef, (doc) => {
+      if (doc.exists()) {
+        callback(doc.data() as Room);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `rooms/${roomId}`);
+    });
+  },
+
+  async getWaitingRooms(): Promise<Room[]> {
+    try {
+      const q = query(collection(db, 'rooms'), where('status', '==', 'waiting'), limit(10));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => doc.data() as Room);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'rooms');
+      return [];
+    }
+  },
+
+  async resetGameData(uid: string, teamId: string) {
+    try {
+      // 1. Reset User Profile (keep uid and email, but clear selectedTeamId)
+      const userRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const profile = userSnap.data() as UserProfile;
+        await setDoc(userRef, {
+          uid: profile.uid,
+          email: profile.email,
+          displayName: profile.displayName,
+          selectedTeamId: null
+        });
+      }
+
+      // 2. Delete Team Data
+      const teamRef = doc(db, 'teams', teamId);
+      await deleteDoc(teamRef);
+
+      // 3. Optional: Delete rooms created by this user (if any)
+      // This is more complex, skipping for now to keep it simple and safe.
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `reset/${uid}`);
+    }
+  }
+};
