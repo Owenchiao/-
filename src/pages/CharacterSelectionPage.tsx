@@ -4,7 +4,7 @@ import { Team, UserProfile, Room, CharacterCard, BattleCharacter } from '../type
 import { gameService } from '../services/gameService';
 import { CHARACTERS } from '../cardDatabase';
 import { CharacterCardUI } from './InventoryPage';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, Copy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Props {
@@ -21,6 +21,11 @@ export default function CharacterSelectionPage({ roomId, team, profile, onStartB
   const [ready, setReady] = useState(false);
 
   const teamChars = CHARACTERS.filter(c => team.inventory.characters.includes(c.id));
+
+  const copyRoomId = () => {
+    navigator.clipboard.writeText(roomId);
+    toast.success('房間代碼已複製！');
+  };
 
   useEffect(() => {
     const unsubscribe = gameService.subscribeToRoom(roomId, (updatedRoom) => {
@@ -86,9 +91,21 @@ export default function CharacterSelectionPage({ roomId, team, profile, onStartB
   return (
     <div className="min-h-screen bg-sky-50 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-black text-sky-600">選擇出戰角色</h1>
-          <p className="text-gray-500 font-bold">請從你的背包中挑選 3 位英雄進入戰場 ({selectedIds.length}/3)</p>
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full border-2 border-sky-200 shadow-sm">
+            <span className="text-sky-600 font-black">房間代碼：{roomId}</span>
+            <button 
+              onClick={copyRoomId}
+              className="p-1 hover:bg-sky-50 rounded-full transition-colors text-sky-400"
+              title="複製代碼"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-4xl font-black text-sky-600">選擇出戰角色</h1>
+            <p className="text-gray-500 font-bold">請從你的背包中挑選 3 位英雄進入戰場 ({selectedIds.length}/3)</p>
+          </div>
         </div>
 
         <div className="flex justify-center gap-8">
