@@ -255,7 +255,10 @@ export default function App() {
           team={team}
           profile={profile}
           onStartBattle={() => setView('battle')}
-          onCancel={() => setView('main_menu')}
+          onCancel={() => {
+            gameService.leaveRoom(currentRoomId, profile.uid);
+            setView('main_menu');
+          }}
         />
       )}
 
@@ -265,6 +268,7 @@ export default function App() {
           team={team}
           profile={profile}
           onFinish={() => {
+            gameService.leaveRoom(currentRoomId, profile.uid);
             // Refresh team data after battle
             gameService.getTeam(team.id).then(setTeam);
             setView('main_menu');

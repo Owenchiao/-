@@ -109,4 +109,5 @@ export interface Room {
   winner?: string; // uid or 'draw'
   createdAt: any;
   firstPlayerUid: string;
+  lastActivity: any;
 }

@@ -123,6 +123,7 @@ export const gameService = {
         currentRound: 1,
         logs: [`小隊 ${player.teamId} 建立了房間 ${roomId}`],
         createdAt: serverTimestamp(),
+        lastActivity: serverTimestamp(),
         firstPlayerUid: player.uid
       };
       await setDoc(doc(db, 'rooms', roomId), room);
@@ -150,6 +151,7 @@ export const gameService = {
         updates.status = 'selecting_chars';
         updates.logs = [...room.logs, `小隊 ${player.teamId} 加入了房間`];
       }
+      updates.lastActivity = serverTimestamp();
 
       await updateDoc(roomRef, updates);
     } catch (error) {
@@ -170,9 +172,34 @@ export const gameService = {
 
   async updateRoom(roomId: string, updates: Partial<Room>) {
     try {
-      await updateDoc(doc(db, 'rooms', roomId), updates);
+      await updateDoc(doc(db, 'rooms', roomId), {
+        ...updates,
+        lastActivity: serverTimestamp()
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomId}`);
+    }
+  },
+
+  async leaveRoom(roomId: string, uid: string) {
+    try {
+      const roomRef = doc(db, 'rooms', roomId);
+      const roomSnap = await getDoc(roomRef);
+      if (!roomSnap.exists()) return;
+
+      const room = roomSnap.data() as Room;
+      const updatedPlayers = room.players.filter(p => p.uid !== uid);
+
+      if (updatedPlayers.length === 0) {
+        await deleteDoc(roomRef);
+      } else {
+        await updateDoc(roomRef, {
+          players: updatedPlayers,
+          lastActivity: serverTimestamp()
+        });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomId}/leave`);
     }
   },
 
@@ -189,12 +216,43 @@ export const gameService = {
 
   async getWaitingRooms(): Promise<Room[]> {
     try {
+      // First, cleanup old rooms
+      await this.cleanupRooms();
+      
       const q = query(collection(db, 'rooms'), where('status', '==', 'waiting'), limit(10));
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => doc.data() as Room);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'rooms');
       return [];
+    }
+  },
+
+  async cleanupRooms() {
+    try {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const q = query(
+        collection(db, 'rooms'), 
+        where('status', '==', 'waiting'),
+        orderBy('lastActivity', 'asc')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const deletePromises = querySnapshot.docs
+        .filter(doc => {
+          const data = doc.data() as Room;
+          if (!data.lastActivity) return false;
+          const lastActivity = data.lastActivity.toDate ? data.lastActivity.toDate() : new Date(data.lastActivity);
+          return lastActivity < fiveMinutesAgo;
+        })
+        .map(doc => deleteDoc(doc.ref));
+      
+      if (deletePromises.length > 0) {
+        console.log(`Cleaning up ${deletePromises.length} old rooms`);
+        await Promise.all(deletePromises);
+      }
+    } catch (error) {
+      console.warn('Cleanup rooms failed (likely missing index or permissions):', error);
     }
   },
 
