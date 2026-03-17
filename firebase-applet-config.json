@@ -1,10 +1,9 @@
-{
-  "projectId": "gen-lang-client-0676721861",
-  "appId": "1:583468147193:web:c945ed94d305fd75261d28",
+const firebaseConfig = {
   "apiKey": "AIzaSyCtfItsPPZ0IZZ6R6KggQPzHf6_FmWFlVc",
   "authDomain": "gen-lang-client-0676721861.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-899c1082-20ee-4b00-9b35-ccc850385dd3",
+  "databaseURL": "https://gen-lang-client-0676721861-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "projectId": "gen-lang-client-0676721861",
   "storageBucket": "gen-lang-client-0676721861.firebasestorage.app",
   "messagingSenderId": "583468147193",
-  "measurementId": ""
-}
+  "appId": "1:583468147193:web:c945ed94d305fd75261d28"
+};
