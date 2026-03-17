@@ -26,37 +26,73 @@ export default function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        const userProfile = await gameService.getUserProfile(firebaseUser.uid);
-        if (userProfile) {
-          setProfile(userProfile);
-          if (userProfile.selectedTeamId) {
-            const teamData = await gameService.getTeam(userProfile.selectedTeamId);
-            setTeam(teamData);
-            setView('main_menu');
-          } else {
-            setView('team_selection');
-          }
-        } else {
-          const newProfile: UserProfile = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || 'anonymous@example.com',
-            displayName: firebaseUser.displayName || `玩家_${firebaseUser.uid.slice(0, 4)}`,
-          };
-          await gameService.createUserProfile(newProfile);
-          setProfile(newProfile);
-          setView('team_selection');
-        }
-      } else {
-        setProfile(null);
-        setTeam(null);
+    console.log('App initialized, starting auth check...');
+    // Safety timeout: if auth doesn't respond in 8 seconds, unblock the UI
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Auth initialization timed out, unblocking UI');
+        setLoading(false);
         setView('login');
       }
+    }, 8000);
+
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        try {
+          setUser(firebaseUser);
+          if (firebaseUser) {
+            const userProfile = await gameService.getUserProfile(firebaseUser.uid);
+            if (userProfile) {
+              setProfile(userProfile);
+              if (userProfile.selectedTeamId) {
+                const teamData = await gameService.getTeam(userProfile.selectedTeamId);
+                setTeam(teamData);
+                setView('main_menu');
+              } else {
+                setView('team_selection');
+              }
+            } else {
+              const newProfile: UserProfile = {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email || 'anonymous@example.com',
+                displayName: firebaseUser.displayName || `玩家_${firebaseUser.uid.slice(0, 4)}`,
+              };
+              await gameService.createUserProfile(newProfile);
+              setProfile(newProfile);
+              setView('team_selection');
+            }
+          } else {
+            setProfile(null);
+            setTeam(null);
+            setView('login');
+          }
+        } catch (error: any) {
+          console.error('Auth state change error:', error);
+          toast.error('初始化失敗，請檢查網路或設定');
+          setView('login');
+        } finally {
+          clearTimeout(safetyTimeout);
+          setLoading(false);
+        }
+      }, (error) => {
+        console.error('onAuthStateChanged error:', error);
+        clearTimeout(safetyTimeout);
+        setLoading(false);
+        setView('login');
+      });
+    } catch (error) {
+      console.error('Failed to register auth listener:', error);
+      clearTimeout(safetyTimeout);
       setLoading(false);
-    });
-    return () => unsubscribe();
+      setView('login');
+    }
+
+    return () => {
+      clearTimeout(safetyTimeout);
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const handleGoogleLogin = async () => {
@@ -139,8 +175,17 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-sky-100 flex items-center justify-center">
+      <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center gap-6">
         <div className="text-2xl font-bold text-sky-600 animate-bounce">載入中...</div>
+        <button 
+          onClick={() => {
+            setLoading(false);
+            setView('login');
+          }}
+          className="px-6 py-2 bg-white/50 hover:bg-white text-sky-600 rounded-full text-sm font-bold transition-all border border-sky-200"
+        >
+          載入太久？點此跳過
+        </button>
       </div>
     );
   }
