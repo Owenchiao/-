@@ -24,8 +24,14 @@ export default function App() {
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
 
   useEffect(() => {
+    // Detect In-App Browsers (Line, FB, IG, etc.)
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const isInApp = /Line|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua);
+    setIsInAppBrowser(isInApp);
+
     console.log('App initialized, starting auth check...');
     // Safety timeout: if auth doesn't respond in 8 seconds, unblock the UI
     const safetyTimeout = setTimeout(() => {
@@ -195,9 +201,22 @@ export default function App() {
       <Toaster position="top-center" />
       
       {view === 'login' && (
-        <LoginPage 
-          onGoogleLogin={handleGoogleLogin} 
-        />
+        <>
+          {isInAppBrowser && (
+            <div className="fixed top-0 left-0 w-full bg-yellow-500 text-white p-4 z-[100] flex items-center justify-between shadow-lg animate-in slide-in-from-top duration-300">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <p className="font-bold text-sm">
+                  偵測到您正在使用 App 內建瀏覽器。請點擊右上角「...」並選擇「用瀏覽器開啟」以正常登入。
+                </p>
+              </div>
+              <button onClick={() => setIsInAppBrowser(false)} className="text-white font-black p-2">✕</button>
+            </div>
+          )}
+          <LoginPage 
+            onGoogleLogin={handleGoogleLogin} 
+          />
+        </>
       )}
       
       {view === 'team_selection' && (
