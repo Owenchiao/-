@@ -270,11 +270,14 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       }
 
       // Update my characters (resting state)
-      updatedMyChars = updatedMyChars.map(c => ({
-        ...c,
-        isMain: c.id === attackerChar!.id,
-        isResting: c.id === attackerChar!.id // Rest next round
-      }));
+      updatedMyChars = updatedMyChars.map(c => {
+        const isAttacker = c.id === attackerChar!.id;
+        return {
+          ...c,
+          isMain: isAttacker,
+          isResting: isAttacker // Rest next round
+        };
+      });
 
       // Update energy
       let energyGain = 0;
@@ -585,8 +588,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                 char={c} 
                 isOpponent 
                 onClick={() => {
-                  const item = myPlayer.items.find(i => i.id === selectedItemId);
-                  if (item?.itemType === 'direct_attack_sub') {
+                  if (!c.isDead) {
                     setSelectedTargetId(c.id);
                   }
                 }}

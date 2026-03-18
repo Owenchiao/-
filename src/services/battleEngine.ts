@@ -43,28 +43,30 @@ export const applyDamage = (
   targetId?: string | null,
   itemUsed?: ItemCard
 ) => {
-  const hasMain = characters.some(c => c.isMain && !c.isDead);
-  let proxyTargetId: string | null = targetId || null;
-
-  // If no main character and no target specified, the first alive sub character takes the full hit
-  if (!hasMain && !proxyTargetId) {
-    const firstAlive = characters.find(c => !c.isDead);
-    if (firstAlive) proxyTargetId = firstAlive.id;
-  }
-
-  // Auto Tracker logic: if target is a sub character, it takes 100% damage
+  // Determine who takes 100% damage
+  let primaryTargetId: string | null = null;
   const isAutoTracker = itemUsed?.itemType === 'direct_attack_sub';
+
+  if (isAutoTracker && targetId) {
+    primaryTargetId = targetId;
+  } else {
+    // Default to main character or first alive
+    const mainChar = characters.find(c => c.isMain && !c.isDead);
+    if (mainChar) {
+      primaryTargetId = mainChar.id;
+    } else {
+      const firstAlive = characters.find(c => !c.isDead);
+      if (firstAlive) primaryTargetId = firstAlive.id;
+    }
+  }
 
   return characters.map(char => {
     if (char.isDead) return char;
     
     let damageTaken = 0;
     
-    if (isAutoTracker && char.id === targetId) {
-      // Auto tracker targets a specific character for 100% damage
-      damageTaken = mainDamage;
-    } else if (char.isMain || char.id === proxyTargetId) {
-      // Main or proxy target takes 100% damage
+    if (char.id === primaryTargetId) {
+      // Primary target takes 100% damage
       damageTaken = mainDamage;
     } else {
       // Others take 20% splash damage
