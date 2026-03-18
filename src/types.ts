@@ -97,6 +97,7 @@ export interface PlayerState {
   items: ItemCard[];
   energy: number;
   hasAttackedThisTurn: boolean;
+  forcedToAttack?: boolean;
 }
 
 export interface Room {

@@ -63,9 +63,8 @@ service cloud.firestore {
       allow update: if isOwner(userId) && isValidUser(request.resource.data);
     }
     match /teams/{teamId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && isValidTeam(request.resource.data);
-      allow delete: if isAuthenticated();
+      allow read, delete: if isAuthenticated() && teamId.matches("^" + request.auth.uid + "_.*");
+      allow create, update: if isAuthenticated() && teamId.matches("^" + request.auth.uid + "_.*") && isValidTeam(request.resource.data);
     }
 
     match /rooms/{roomId} {

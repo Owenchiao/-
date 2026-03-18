@@ -256,7 +256,7 @@ export const gameService = {
     }
   },
 
-  async resetGameData(uid: string, teamId: string) {
+  async resetGameData(uid: string) {
     try {
       // 1. Reset User Profile (keep uid and email, but clear selectedTeamId)
       const userRef = doc(db, 'users', uid);
@@ -271,12 +271,15 @@ export const gameService = {
         });
       }
 
-      // 2. Delete Team Data
-      const teamRef = doc(db, 'teams', teamId);
-      await deleteDoc(teamRef);
-
-      // 3. Optional: Delete rooms created by this user (if any)
-      // This is more complex, skipping for now to keep it simple and safe.
+      // 2. Delete ALL possible Team Data for this user
+      const { TEAMS } = await import('../constants');
+      const deletePromises = TEAMS.map(teamId => {
+        const userTeamId = `${uid}_${teamId}`;
+        return deleteDoc(doc(db, 'teams', userTeamId));
+      });
+      
+      await Promise.all(deletePromises);
+      console.log(`Successfully cleared all ${TEAMS.length} team slots for user ${uid}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `reset/${uid}`);
     }

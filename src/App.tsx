@@ -63,9 +63,19 @@ export default function App() {
             if (userProfile) {
               setProfile(userProfile);
               if (userProfile.selectedTeamId) {
-                const teamData = await gameService.getTeam(userProfile.selectedTeamId);
-                setTeam(teamData);
-                setView('main_menu');
+                const userTeamId = `${firebaseUser.uid}_${userProfile.selectedTeamId}`;
+                const teamData = await gameService.getTeam(userTeamId);
+                if (teamData) {
+                  setTeam(teamData);
+                  setView('main_menu');
+                } else {
+                  // If team data is missing (e.g. after a reset or format change), 
+                  // clear the selectedTeamId and go to selection
+                  const updatedProfile = { ...userProfile, selectedTeamId: null };
+                  await gameService.createUserProfile(updatedProfile);
+                  setProfile(updatedProfile);
+                  setView('team_selection');
+                }
               } else {
                 setView('team_selection');
               }
@@ -142,13 +152,13 @@ export default function App() {
   };
 
   const confirmReset = async () => {
-    if (!profile || !team) return;
+    if (!profile) return;
     
     try {
       setLoading(true);
       setShowResetConfirm(false);
-      console.log('Starting reset for user:', profile.uid, 'team:', team.id);
-      await gameService.resetGameData(profile.uid, team.id);
+      console.log('Starting full reset for user:', profile.uid);
+      await gameService.resetGameData(profile.uid);
       toast.success('遊戲紀錄已重置');
       
       // Clear local state before reload to be safe
@@ -172,11 +182,12 @@ export default function App() {
     await gameService.createUserProfile(updatedProfile);
     setProfile(updatedProfile);
     
-    // Initialize team data if it doesn't exist
-    let teamData = await gameService.getTeam(teamId);
+    // Initialize user-specific team data if it doesn't exist
+    const userTeamId = `${profile.uid}_${teamId}`;
+    let teamData = await gameService.getTeam(userTeamId);
     if (!teamData) {
       teamData = {
-        id: teamId,
+        id: userTeamId,
         name: `小隊 ${teamId}`,
         inventory: {
           characters: ['c_phineas', 'c_ferb', 'c_isabella', 'c_candace', 'c_doof', 'c_vanessa'], // Give some starters

@@ -24,6 +24,7 @@ interface DamageEffect {
 export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
   const [room, setRoom] = useState<Room | null>(null);
   const [selectedMainId, setSelectedMainId] = useState<string | null>(null);
+  const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [energyToUse, setEnergyToUse] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [useSkill, setUseSkill] = useState(false);
@@ -120,8 +121,16 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
     const attackerChar = currentMyPlayer.selectedChars.find(c => c.isMain)!;
     const defenderMain = currentOpponent.selectedChars.find(c => c.isMain) || currentOpponent.selectedChars.find(c => !c.isDead)!;
     
+    // Determine target
+    let targetChar = defenderMain;
     const item = currentMyPlayer.items.find(i => i.id === selectedItemId);
-    const { damage, advantage } = calculateDamage(attackerChar, defenderMain, energyToUse, useSkill, item);
+    
+    if (item?.itemType === 'direct_attack_sub' && selectedTargetId) {
+      const subTarget = currentOpponent.selectedChars.find(c => c.id === selectedTargetId);
+      if (subTarget) targetChar = subTarget;
+    }
+
+    const { damage, advantage } = calculateDamage(attackerChar, targetChar, energyToUse, useSkill, item);
 
     // --- Start Animation Sequence ---
     
@@ -137,7 +146,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
     await new Promise(resolve => setTimeout(resolve, 300));
 
     // 3. Defender Hit & Damage Number
-    setHitId(defenderMain.id);
+    setHitId(targetChar.id);
     const effectId = Math.random().toString();
     setDamageEffects(prev => [...prev, {
       id: effectId,
@@ -166,10 +175,41 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
     if (item) newLogs.push(`使用道具：${item.name}`);
 
     // Apply damage to opponent
-    const updatedOpponentChars = applyDamage(currentOpponent.selectedChars, damage);
+    let updatedOpponentChars = applyDamage(currentOpponent.selectedChars, damage, targetChar.id, item);
     
+    // Item effects
+    let updatedMyChars = [...currentMyPlayer.selectedChars];
+    let forcedToAttackOpponent = false;
+
+    if (item) {
+      if (item.itemType === 'heal') {
+        const healAmount = item.value || 50;
+        updatedMyChars = updatedMyChars.map(c => ({
+          ...c,
+          currentHp: Math.min(c.maxHp, c.currentHp + healAmount),
+          isDead: false
+        }));
+        newLogs.push(`使用了醫療箱，全員恢復 ${healAmount} 點生命！`);
+      } else if (item.itemType === 'force_swap_main') {
+        // Force opponent to swap main
+        const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
+        if (aliveSubs.length > 0) {
+          const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+          updatedOpponentChars = updatedOpponentChars.map(c => ({
+            ...c,
+            isMain: c.id === randomSub.id
+          }));
+          newLogs.push(`凱蒂絲的檢舉信！對手被迫更換主戰角色為 ${randomSub.name}！`);
+        }
+      } else if (item.itemType === 'coin_flip_miss') {
+        // Hologram device: Force opponent to attack next turn
+        forcedToAttackOpponent = true;
+        newLogs.push(`全息影像裝置！對手下回合被迫發動攻擊！`);
+      }
+    }
+
     // Update my characters (resting state)
-    const updatedMyChars = currentMyPlayer.selectedChars.map(c => ({
+    updatedMyChars = updatedMyChars.map(c => ({
       ...c,
       isMain: c.id === attackerChar.id,
       isResting: c.id === attackerChar.id // Rest next round
@@ -205,11 +245,16 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           selectedChars: updatedMyChars, 
           energy: Math.max(0, p.energy - energyCost + energyGain),
           items: p.items.filter(i => i.id !== selectedItemId),
-          hasAttackedThisTurn: true
+          hasAttackedThisTurn: true,
+          forcedToAttack: false // Reset if I was forced
         };
       }
       if (p.uid === currentOpponent.uid) {
-        return { ...p, selectedChars: updatedOpponentChars };
+        return { 
+          ...p, 
+          selectedChars: updatedOpponentChars,
+          forcedToAttack: forcedToAttackOpponent || p.forcedToAttack
+        };
       }
       return p;
     });
@@ -264,9 +309,76 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
     // Reset local selection
     setSelectedMainId(null);
+    setSelectedTargetId(null);
     setEnergyToUse(0);
     setSelectedItemId(null);
     setUseSkill(false);
+    setIsProcessing(false);
+  };
+
+  const handleSkip = async () => {
+    if (!isMyTurn || isProcessing || myPlayer.forcedToAttack) {
+      if (myPlayer.forcedToAttack) toast.error('你被全息影像裝置影響，必須發動攻擊！');
+      return;
+    }
+
+    setIsProcessing(true);
+    const latestRoom = await gameService.getRoom(roomId);
+    if (!latestRoom || latestRoom.turn !== profile.uid) {
+      setIsProcessing(false);
+      return;
+    }
+
+    let newLogs = [...latestRoom.logs];
+    newLogs.push(`${myPlayer.teamId} 選擇了防禦/跳過本回合`);
+
+    const updatedPlayers = latestRoom.players.map(p => {
+      if (p.uid === profile.uid) {
+        return { ...p, hasAttackedThisTurn: true };
+      }
+      return p;
+    });
+
+    // Same logic for round end
+    let nextTurn = opponent.uid;
+    let nextRound = latestRoom.currentRound;
+    let nextStatus = latestRoom.status;
+    let winner = null;
+
+    const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
+    if (bothAttacked) {
+      if (latestRoom.currentRound >= 3) {
+        nextStatus = 'finished';
+        const mySurvivors = myPlayer.selectedChars.filter(c => !c.isDead).length;
+        const oppSurvivors = opponent.selectedChars.filter(c => !c.isDead).length;
+        if (mySurvivors > oppSurvivors) winner = profile.uid;
+        else if (oppSurvivors > mySurvivors) winner = opponent.uid;
+        else winner = 'draw';
+        newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
+      } else {
+        nextRound += 1;
+        nextTurn = latestRoom.firstPlayerUid;
+        nextStatus = 'preparing';
+        updatedPlayers.forEach(p => {
+          p.hasAttackedThisTurn = false;
+          p.selectedChars.forEach(c => {
+            if (!c.isMain) c.isResting = false;
+            c.isMain = false;
+          });
+        });
+        newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+      }
+    }
+
+    await gameService.updateRoom(roomId, {
+      players: updatedPlayers,
+      turn: nextTurn,
+      currentRound: nextRound,
+      status: nextStatus,
+      logs: newLogs,
+      winner
+    });
+
     setIsProcessing(false);
   };
 
@@ -324,6 +436,13 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                 key={c.id} 
                 char={c} 
                 isOpponent 
+                onClick={() => {
+                  const item = myPlayer.items.find(i => i.id === selectedItemId);
+                  if (item?.itemType === 'direct_attack_sub') {
+                    setSelectedTargetId(c.id);
+                  }
+                }}
+                isSelected={selectedTargetId === c.id}
                 isHit={hitId === c.id}
                 damageEffect={damageEffects.find(e => hitId === c.id)} 
               />
@@ -336,6 +455,8 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                 char={c} 
                 isOpponent 
                 isMain 
+                onClick={() => setSelectedTargetId(null)}
+                isSelected={!selectedTargetId && hitId === c.id}
                 isHit={hitId === c.id}
                 damageEffect={damageEffects.find(e => hitId === c.id)}
               />
@@ -525,13 +646,22 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                 </select>
               </div>
 
-              <button
-                onClick={handleAttack}
-                disabled={!isMyTurn || !selectedMainId || isProcessing}
-                className={`w-full py-5 rounded-2xl font-black text-xl shadow-lg transition-all transform active:scale-95 ${!isMyTurn || !selectedMainId ? 'bg-gray-600 grayscale cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'}`}
-              >
-                {isProcessing ? '處理中...' : '確認攻擊'}
-              </button>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={handleAttack}
+                  disabled={!isMyTurn || !selectedMainId || isProcessing}
+                  className={`py-5 rounded-2xl font-black text-xl shadow-lg transition-all transform active:scale-95 ${!isMyTurn || !selectedMainId ? 'bg-gray-600 grayscale cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'}`}
+                >
+                  {isProcessing ? '處理中...' : '確認攻擊'}
+                </button>
+                <button
+                  onClick={handleSkip}
+                  disabled={!isMyTurn || isProcessing || myPlayer.forcedToAttack}
+                  className={`py-5 rounded-2xl font-black text-xl shadow-lg transition-all transform active:scale-95 ${!isMyTurn || myPlayer.forcedToAttack ? 'bg-gray-600 grayscale cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 border border-white/10'}`}
+                >
+                  {myPlayer.forcedToAttack ? '被迫攻擊' : '防禦/跳過'}
+                </button>
+              </div>
             </div>
           )}
         </div>
