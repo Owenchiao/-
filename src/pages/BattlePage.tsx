@@ -298,10 +298,13 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
       const updatedPlayers = latestRoom.players.map(p => {
         if (p.uid === profile.uid) {
+          const currentEnergy = p.energy || 0;
+          const finalEnergy = Math.max(0, currentEnergy - energyCost + energyGain);
+          
           return { 
             ...p, 
             selectedChars: updatedMyChars, 
-            energy: Math.max(0, p.energy - energyCost + energyGain),
+            energy: isNaN(finalEnergy) ? currentEnergy : finalEnergy,
             items: p.items.filter(i => i.id !== selectedItemId),
             hasAttackedThisTurn: true,
             forcedToAttack: false // Reset if I was forced
@@ -344,7 +347,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
             newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
           } else {
             nextRound += 1;
-            nextTurn = latestRoom.firstPlayerUid; // Reset to first player
+            nextTurn = latestRoom.firstPlayerUid || latestRoom.players[0].uid; // Reset to first player
             nextStatus = 'preparing'; // Go back to preparing for next round
             // Reset attack flags and ALL resting states for next round
             updatedPlayers.forEach(p => {
@@ -372,8 +375,16 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         updates.winner = winner;
       }
 
-      console.log('Updating room with:', updates);
-      await gameService.updateRoom(roomId, updates);
+      // Clean updates to remove any undefined values
+      const cleanUpdates: any = {};
+      Object.keys(updates).forEach(key => {
+        if (updates[key] !== undefined) {
+          cleanUpdates[key] = updates[key];
+        }
+      });
+
+      console.log('Updating room with:', JSON.stringify(cleanUpdates, null, 2));
+      await gameService.updateRoom(roomId, cleanUpdates);
 
       // Reset local selection
       setSelectedMainId(null);
@@ -458,7 +469,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
             newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
           } else {
             nextRound += 1;
-            nextTurn = latestRoom.firstPlayerUid;
+            nextTurn = latestRoom.firstPlayerUid || latestRoom.players[0].uid;
             nextStatus = 'preparing';
             updatedPlayers.forEach(p => {
               p.hasAttackedThisTurn = false;
@@ -473,23 +484,29 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         }
       }
 
-      console.log('Skipping turn, updating room with:', {
+      const updates: any = {
         players: updatedPlayers,
         turn: nextTurn,
         currentRound: nextRound,
         status: nextStatus,
         logs: newLogs,
-        winner
+      };
+
+      if (winner) {
+        updates.winner = winner;
+      }
+
+      // Clean updates to remove any undefined values
+      const cleanUpdates: any = {};
+      Object.keys(updates).forEach(key => {
+        if (updates[key] !== undefined) {
+          cleanUpdates[key] = updates[key];
+        }
       });
 
-      await gameService.updateRoom(roomId, {
-        players: updatedPlayers,
-        turn: nextTurn,
-        currentRound: nextRound,
-        status: nextStatus,
-        logs: newLogs,
-        winner
-      });
+      console.log('Skipping turn, updating room with:', JSON.stringify(cleanUpdates, null, 2));
+
+      await gameService.updateRoom(roomId, cleanUpdates);
 
       // Reset local selection states
       setEnergyToUse(0);
@@ -661,30 +678,48 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               className="max-w-md w-full bg-slate-900 border-2 border-white/10 rounded-[2.5rem] p-10 text-center shadow-2xl relative overflow-hidden"
             >
               {/* Background Glow */}
-              <div className={`absolute -top-24 -left-24 w-48 h-48 rounded-full blur-[100px] opacity-30 ${room.winner === profile.uid ? 'bg-yellow-500' : 'bg-red-500'}`} />
-              <div className={`absolute -bottom-24 -right-24 w-48 h-48 rounded-full blur-[100px] opacity-30 ${room.winner === profile.uid ? 'bg-yellow-500' : 'bg-red-500'}`} />
+              <div className={`absolute -top-24 -left-24 w-48 h-48 rounded-full blur-[100px] opacity-30 ${
+                room.winner === profile.uid ? 'bg-yellow-500' : 
+                room.winner === 'draw' ? 'bg-sky-500' : 'bg-red-500'
+              }`} />
+              <div className={`absolute -bottom-24 -right-24 w-48 h-48 rounded-full blur-[100px] opacity-30 ${
+                room.winner === profile.uid ? 'bg-yellow-500' : 
+                room.winner === 'draw' ? 'bg-sky-500' : 'bg-red-500'
+              }`} />
 
               <div className="relative space-y-8">
                 <motion.div
                   animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
                   transition={{ repeat: Infinity, duration: 5 }}
                 >
-                  <Trophy className={`w-24 h-24 mx-auto ${room.winner === profile.uid ? 'text-yellow-500' : 'text-slate-500'}`} />
+                  <Trophy className={`w-24 h-24 mx-auto ${
+                    room.winner === profile.uid ? 'text-yellow-500' : 
+                    room.winner === 'draw' ? 'text-sky-400' : 'text-slate-500'
+                  }`} />
                 </motion.div>
 
                 <div className="space-y-2">
                   <h2 className="text-5xl font-black italic tracking-tighter uppercase">
-                    {room.winner === profile.uid ? 'Victory!' : 'Defeat'}
+                    {room.winner === profile.uid ? 'Victory!' : 
+                     room.winner === 'draw' ? 'Draw' : 'Defeat'}
                   </h2>
+                  <div className="py-2 px-4 bg-white/5 rounded-xl inline-block">
+                    <span className="text-sm font-bold text-slate-400">獲勝者：</span>
+                    <span className="text-lg font-black text-white">
+                      {room.winner === 'draw' ? '雙方平手' : 
+                       (room.winner === profile.uid ? myPlayer.teamName : opponent.teamName)}
+                    </span>
+                  </div>
                   <p className="text-slate-400 font-bold">
-                    {room.winner === profile.uid ? '恭喜你贏得了這場對戰！' : '下次再接再厲，飛哥家永不言敗！'}
+                    {room.winner === profile.uid ? '恭喜你贏得了這場對戰！' : 
+                     room.winner === 'draw' ? '這是一場勢均力敵的較量！' : '下次再接再厲，飛哥家永不言敗！'}
                   </p>
                 </div>
 
                 <div className="pt-4">
                   <button
                     onClick={onFinish}
-                    className="w-full bg-sky-500 hover:bg-sky-600 text-white py-5 rounded-2xl font-black text-xl shadow-[0_0_30px_rgba(14,165,233,0.4)] transition-all transform active:scale-95 flex items-center justify-center gap-3"
+                    className="w-full bg-sky-500 hover:bg-sky-600 text-white py-5 rounded-2xl font-black text-xl shadow-[0_0_30_rgba(14,165,233,0.4)] transition-all transform active:scale-95 flex items-center justify-center gap-3"
                   >
                     返回主選單 <Trophy className="w-6 h-6" />
                   </button>

@@ -49,8 +49,12 @@ service cloud.firestore {
     }
 
     function isValidRoom(data) {
-      return data.keys().hasAll(['status', 'players', 'createdAt']) &&
+      return data.keys().hasAll(['status', 'players']) &&
              data.status in ['waiting', 'selecting_chars', 'preparing', 'battle', 'finished'];
+    }
+
+    function isValidRoomUpdate(data) {
+      return !('status' in data) || data.status in ['waiting', 'selecting_chars', 'preparing', 'battle', 'finished'];
     }
 
     // ===============================================================
@@ -70,7 +74,7 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidRoom(request.resource.data);
-      allow update: if isAuthenticated() && isValidRoom(request.resource.data);
+      allow update: if isAuthenticated() && isValidRoomUpdate(request.resource.data);
       allow delete: if isAdmin();
     }
   }
