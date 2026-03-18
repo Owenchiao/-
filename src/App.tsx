@@ -190,8 +190,8 @@ export default function App() {
         id: userTeamId,
         name: `小隊 ${teamId}`,
         inventory: {
-          characters: ['c_phineas', 'c_ferb', 'c_isabella', 'c_candace', 'c_doof', 'c_vanessa'], // Give some starters
-          items: ['item_tracker', 'item_medkit']
+          characters: [], // Start empty after reset
+          items: []       // Start empty after reset
         }
       };
       await gameService.updateTeam(teamData);
