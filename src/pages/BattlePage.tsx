@@ -311,7 +311,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           return { 
             ...p, 
             selectedChars: updatedOpponentChars,
-            forcedToAttack: forcedToAttackOpponent || p.forcedToAttack
+            forcedToAttack: !!(forcedToAttackOpponent || p.forcedToAttack)
           };
         }
         return p;
@@ -349,6 +349,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
             // Reset attack flags and ALL resting states for next round
             updatedPlayers.forEach(p => {
               p.hasAttackedThisTurn = false;
+              p.forcedToAttack = false;
               p.selectedChars.forEach(c => {
                 c.isResting = false; // Clear resting state for next round
                 c.isMain = false; // Reset main for next round selection
@@ -371,6 +372,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         updates.winner = winner;
       }
 
+      console.log('Updating room with:', updates);
       await gameService.updateRoom(roomId, updates);
 
       // Reset local selection
@@ -379,9 +381,18 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       setEnergyToUse(0);
       setSelectedItemId(null);
       setUseSkill(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Attack error:', error);
-      toast.error('攻擊執行失敗，請重試');
+      let errorMsg = '攻擊執行失敗，請重試';
+      if (error?.message) {
+        try {
+          const parsed = JSON.parse(error.message);
+          if (parsed.error) errorMsg = `攻擊失敗: ${parsed.error}`;
+        } catch (e) {
+          errorMsg = `攻擊失敗: ${error.message}`;
+        }
+      }
+      toast.error(errorMsg);
     } finally {
       setIsProcessing(false);
     }
@@ -451,6 +462,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
             nextStatus = 'preparing';
             updatedPlayers.forEach(p => {
               p.hasAttackedThisTurn = false;
+              p.forcedToAttack = false;
               p.selectedChars.forEach(c => {
                 c.isResting = false;
                 c.isMain = false;
@@ -460,6 +472,15 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           }
         }
       }
+
+      console.log('Skipping turn, updating room with:', {
+        players: updatedPlayers,
+        turn: nextTurn,
+        currentRound: nextRound,
+        status: nextStatus,
+        logs: newLogs,
+        winner
+      });
 
       await gameService.updateRoom(roomId, {
         players: updatedPlayers,
@@ -475,9 +496,18 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       setUseSkill(false);
       setSelectedItemId(null);
       setSelectedTargetId(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Skip error:', error);
-      toast.error('跳過回合失敗，請重試');
+      let errorMsg = '跳過回合失敗，請重試';
+      if (error?.message) {
+        try {
+          const parsed = JSON.parse(error.message);
+          if (parsed.error) errorMsg = `跳過失敗: ${parsed.error}`;
+        } catch (e) {
+          errorMsg = `跳過失敗: ${error.message}`;
+        }
+      }
+      toast.error(errorMsg);
     } finally {
       setIsProcessing(false);
     }

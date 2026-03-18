@@ -38,7 +38,8 @@ export default function LobbyPage({ team, profile, onBack, onEnterRoom }: Props)
       selectedChars: [],
       items: ITEMS.filter(i => team.inventory.items.includes(i.id)),
       energy: 2, // Default starting energy
-      hasAttackedThisTurn: false
+      hasAttackedThisTurn: false,
+      forcedToAttack: false
     };
     const roomId = await gameService.createRoom(player);
     if (roomId) {
@@ -58,7 +59,8 @@ export default function LobbyPage({ team, profile, onBack, onEnterRoom }: Props)
       selectedChars: [],
       items: ITEMS.filter(i => team.inventory.items.includes(i.id)),
       energy: 2, // Default starting energy
-      hasAttackedThisTurn: false
+      hasAttackedThisTurn: false,
+      forcedToAttack: false
     };
     try {
       await gameService.joinRoom(roomId, player);
