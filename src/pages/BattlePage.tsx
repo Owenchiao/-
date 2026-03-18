@@ -70,31 +70,37 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       return;
     }
     setIsProcessing(true);
-    const latestRoom = await gameService.getRoom(roomId);
-    if (!latestRoom) return;
+    try {
+      const latestRoom = await gameService.getRoom(roomId);
+      if (!latestRoom) return;
 
-    const updatedPlayers = latestRoom.players.map(p => {
-      if (p.uid === profile.uid) {
-        return {
-          ...p,
-          selectedChars: p.selectedChars.map(c => ({
-            ...c,
-            isMain: c.id === selectedMainId
-          }))
-        };
+      const updatedPlayers = latestRoom.players.map(p => {
+        if (p.uid === profile.uid) {
+          return {
+            ...p,
+            selectedChars: p.selectedChars.map(c => ({
+              ...c,
+              isMain: c.id === selectedMainId
+            }))
+          };
+        }
+        return p;
+      });
+
+      const allHaveMain = updatedPlayers.every(p => p.selectedChars.some(c => c.isMain));
+      const updates: any = { players: updatedPlayers };
+      if (allHaveMain) {
+        updates.status = 'battle';
+        updates.logs = [...latestRoom.logs, `--- 第 ${latestRoom.currentRound} 回合戰鬥開始 ---`];
       }
-      return p;
-    });
 
-    const allHaveMain = updatedPlayers.every(p => p.selectedChars.some(c => c.isMain));
-    const updates: any = { players: updatedPlayers };
-    if (allHaveMain) {
-      updates.status = 'battle';
-      updates.logs = [...latestRoom.logs, `--- 第 ${latestRoom.currentRound} 回合戰鬥開始 ---`];
+      await gameService.updateRoom(roomId, updates);
+    } catch (error) {
+      console.error('Confirm main error:', error);
+      toast.error('指派角色失敗，請重試');
+    } finally {
+      setIsProcessing(false);
     }
-
-    await gameService.updateRoom(roomId, updates);
-    setIsProcessing(false);
   };
 
   const handleAttack = async () => {
@@ -107,213 +113,238 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
     setIsProcessing(true);
     
-    // Re-fetch latest room state to avoid race conditions
-    const latestRoom = await gameService.getRoom(roomId);
-    if (!latestRoom || latestRoom.turn !== profile.uid) {
-      toast.error('目前不是你的回合');
-      setIsProcessing(false);
-      return;
-    }
-
-    const currentMyPlayer = latestRoom.players.find(p => p.uid === profile.uid)!;
-    const currentOpponent = latestRoom.players.find(p => p.uid !== profile.uid)!;
-
-    const attackerChar = currentMyPlayer.selectedChars.find(c => c.isMain)!;
-    const defenderMain = currentOpponent.selectedChars.find(c => c.isMain) || currentOpponent.selectedChars.find(c => !c.isDead)!;
-    
-    // Determine target
-    let targetChar = defenderMain;
-    const item = currentMyPlayer.items.find(i => i.id === selectedItemId);
-    
-    if (item?.itemType === 'direct_attack_sub' && selectedTargetId) {
-      const subTarget = currentOpponent.selectedChars.find(c => c.id === selectedTargetId);
-      if (subTarget) targetChar = subTarget;
-    }
-
-    const { damage, advantage } = calculateDamage(attackerChar, targetChar, energyToUse, useSkill, item);
-
-    // --- Start Animation Sequence ---
-    
-    // 1. Skill Cut-in
-    if (useSkill) {
-      setSkillCutIn(attackerChar);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setSkillCutIn(null);
-    }
-
-    // 2. Attacker Dash
-    setAttackingId(attackerChar.id);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // 3. Defender Hit & Damage Number
-    setHitId(targetChar.id);
-    const effectId = Math.random().toString();
-    setDamageEffects(prev => [...prev, {
-      id: effectId,
-      amount: damage,
-      isAdvantage: advantage,
-      x: 0, // Centered on card
-      y: -40
-    }]);
-
-    // Cleanup animations after a delay
-    setTimeout(() => {
-      setAttackingId(null);
-      setHitId(null);
-    }, 500);
-
-    setTimeout(() => {
-      setDamageEffects(prev => prev.filter(e => e.id !== effectId));
-    }, 1500);
-
-    // --- End Animation Sequence ---
-
-    let newLogs = [...latestRoom.logs];
-    newLogs.push(`${currentMyPlayer.teamId} 的 ${attackerChar.name} 發動攻擊！`);
-    if (advantage) newLogs.push(`屬性克制！額外造成 20 點傷害`);
-    if (useSkill) newLogs.push(`使用技能：${attackerChar.skillName}`);
-    if (item) newLogs.push(`使用道具：${item.name}`);
-
-    // Apply damage to opponent
-    let updatedOpponentChars = applyDamage(currentOpponent.selectedChars, damage, targetChar.id, item);
-    
-    // Item effects
-    let updatedMyChars = [...currentMyPlayer.selectedChars];
-    let forcedToAttackOpponent = false;
-
-    if (item) {
-      if (item.itemType === 'heal') {
-        const healAmount = item.value || 50;
-        updatedMyChars = updatedMyChars.map(c => ({
-          ...c,
-          currentHp: Math.min(c.maxHp, c.currentHp + healAmount),
-          isDead: false
-        }));
-        newLogs.push(`使用了醫療箱，全員恢復 ${healAmount} 點生命！`);
-      } else if (item.itemType === 'force_swap_main') {
-        // Force opponent to swap main
-        const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
-        if (aliveSubs.length > 0) {
-          const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
-          updatedOpponentChars = updatedOpponentChars.map(c => ({
-            ...c,
-            isMain: c.id === randomSub.id
-          }));
-          newLogs.push(`凱蒂絲的檢舉信！對手被迫更換主戰角色為 ${randomSub.name}！`);
-        }
-      } else if (item.itemType === 'coin_flip_miss') {
-        // Hologram device: Force opponent to attack next turn
-        forcedToAttackOpponent = true;
-        newLogs.push(`全息影像裝置！對手下回合被迫發動攻擊！`);
+    try {
+      // Re-fetch latest room state to avoid race conditions
+      const latestRoom = await gameService.getRoom(roomId);
+      if (!latestRoom || latestRoom.turn !== profile.uid) {
+        toast.error('目前不是你的回合');
+        setIsProcessing(false);
+        return;
       }
-    }
 
-    // Update my characters (resting state)
-    updatedMyChars = updatedMyChars.map(c => ({
-      ...c,
-      isMain: c.id === attackerChar.id,
-      isResting: c.id === attackerChar.id // Rest next round
-    }));
+      const currentMyPlayer = latestRoom.players.find(p => p.uid === profile.uid);
+      const currentOpponent = latestRoom.players.find(p => p.uid !== profile.uid);
 
-    // Update energy
-    let energyCost = energyToUse;
-    if (useSkill) energyCost += attackerChar.skillEnergyCost || 0;
-
-    let energyGain = 0;
-    if (item) {
-      if (item.itemType === 'gain_energy') {
-        energyGain = item.value || 0;
-      } else if (item.itemType === 'gain_energy_phineas' && attackerChar.faction === '飛哥家') {
-        energyGain = item.value || 0;
-      } else if (item.itemType === 'gain_energy_doof' && attackerChar.faction === '杜芬舒斯家') {
-        energyGain = item.value || 0;
-      } else if (item.itemType === 'gain_energy_fireside' && attackerChar.faction === '美眉家') {
-        energyGain = item.value || 0;
+      if (!currentMyPlayer || !currentOpponent) {
+        toast.error('對戰資料不完整');
+        setIsProcessing(false);
+        return;
       }
+
+      // Find attacker - if no main is set, try to use the selected one (recovery logic)
+      let attackerChar = currentMyPlayer.selectedChars.find(c => c.isMain);
       
-      if (energyGain > 0) {
-        newLogs.push(`獲得了 ${energyGain} 點能量！`);
-      } else if (item.itemType.startsWith('gain_energy_')) {
-        newLogs.push(`道具 ${item.name} 與當前角色陣營不符，未獲得能量。`);
+      if (!attackerChar) {
+        // Recovery: if no main is set but we are in battle phase, set the selected one as main
+        attackerChar = currentMyPlayer.selectedChars.find(c => c.id === selectedMainId);
+        if (!attackerChar || attackerChar.isDead) {
+          toast.error('找不到有效的主戰角色');
+          setIsProcessing(false);
+          return;
+        }
+        console.warn('No main character found in battle phase, using selected character as recovery.');
       }
-    }
 
-    const updatedPlayers = latestRoom.players.map(p => {
-      if (p.uid === profile.uid) {
-        return { 
-          ...p, 
-          selectedChars: updatedMyChars, 
-          energy: Math.max(0, p.energy - energyCost + energyGain),
-          items: p.items.filter(i => i.id !== selectedItemId),
-          hasAttackedThisTurn: true,
-          forcedToAttack: false // Reset if I was forced
-        };
+      const defenderMain = currentOpponent.selectedChars.find(c => c.isMain) || currentOpponent.selectedChars.find(c => !c.isDead)!;
+      
+      // Determine target
+      let targetChar = defenderMain;
+      const item = currentMyPlayer.items.find(i => i.id === selectedItemId);
+      
+      if (item?.itemType === 'direct_attack_sub' && selectedTargetId) {
+        const subTarget = currentOpponent.selectedChars.find(c => c.id === selectedTargetId);
+        if (subTarget) targetChar = subTarget;
       }
-      if (p.uid === currentOpponent.uid) {
-        return { 
-          ...p, 
-          selectedChars: updatedOpponentChars,
-          forcedToAttack: forcedToAttackOpponent || p.forcedToAttack
-        };
+
+      const { damage, advantage } = calculateDamage(attackerChar, targetChar, energyToUse, useSkill, item);
+
+      // --- Start Animation Sequence ---
+      
+      // 1. Skill Cut-in
+      if (useSkill) {
+        setSkillCutIn(attackerChar);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setSkillCutIn(null);
       }
-      return p;
-    });
 
-    // Check if round ends
-    let nextTurn = currentOpponent.uid;
-    let nextRound = latestRoom.currentRound;
-    let nextStatus = latestRoom.status;
-    let winner = null;
+      // 2. Attacker Dash
+      setAttackingId(attackerChar.id);
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-    const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
-    if (bothAttacked) {
-      if (latestRoom.currentRound >= 3) {
-        nextStatus = 'finished';
-        // Determine winner
-        const mySurvivors = updatedMyChars.filter(c => !c.isDead).length;
-        const oppSurvivors = updatedOpponentChars.filter(c => !c.isDead).length;
-        if (mySurvivors > oppSurvivors) winner = profile.uid;
-        else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
-        else winner = 'draw';
+      // 3. Defender Hit & Damage Number
+      setHitId(targetChar.id);
+      const effectId = Math.random().toString();
+      setDamageEffects(prev => [...prev, {
+        id: effectId,
+        amount: damage,
+        isAdvantage: advantage,
+        x: 0, // Centered on card
+        y: -40
+      }]);
+
+      // Cleanup animations after a delay
+      setTimeout(() => {
+        setAttackingId(null);
+        setHitId(null);
+      }, 500);
+
+      setTimeout(() => {
+        setDamageEffects(prev => prev.filter(e => e.id !== effectId));
+      }, 1500);
+
+      // --- End Animation Sequence ---
+
+      let newLogs = [...latestRoom.logs];
+      newLogs.push(`${currentMyPlayer.teamId} 的 ${attackerChar.name} 發動攻擊！`);
+      if (advantage) newLogs.push(`屬性克制！額外造成 20 點傷害`);
+      if (useSkill) newLogs.push(`使用技能：${attackerChar.skillName}`);
+      if (item) newLogs.push(`使用道具：${item.name}`);
+
+      // Apply damage to opponent
+      let updatedOpponentChars = applyDamage(currentOpponent.selectedChars, damage, targetChar.id, item);
+      
+      // Item effects
+      let updatedMyChars = [...currentMyPlayer.selectedChars];
+      let forcedToAttackOpponent = false;
+
+      if (item) {
+        if (item.itemType === 'heal') {
+          const healAmount = item.value || 50;
+          updatedMyChars = updatedMyChars.map(c => ({
+            ...c,
+            currentHp: Math.min(c.maxHp, c.currentHp + healAmount),
+            isDead: false
+          }));
+          newLogs.push(`使用了醫療箱，全員恢復 ${healAmount} 點生命！`);
+        } else if (item.itemType === 'force_swap_main') {
+          // Force opponent to swap main
+          const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
+          if (aliveSubs.length > 0) {
+            const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+            updatedOpponentChars = updatedOpponentChars.map(c => ({
+              ...c,
+              isMain: c.id === randomSub.id
+            }));
+            newLogs.push(`凱蒂絲的檢舉信！對手被迫更換主戰角色為 ${randomSub.name}！`);
+          }
+        } else if (item.itemType === 'coin_flip_miss') {
+          // Hologram device: Force opponent to attack next turn
+          forcedToAttackOpponent = true;
+          newLogs.push(`全息影像裝置！對手下回合被迫發動攻擊！`);
+        }
+      }
+
+      // Update my characters (resting state)
+      updatedMyChars = updatedMyChars.map(c => ({
+        ...c,
+        isMain: c.id === attackerChar!.id,
+        isResting: c.id === attackerChar!.id // Rest next round
+      }));
+
+      // Update energy
+      let energyCost = energyToUse;
+      if (useSkill) energyCost += attackerChar.skillEnergyCost || 0;
+
+      let energyGain = 0;
+      if (item) {
+        if (item.itemType === 'gain_energy') {
+          energyGain = item.value || 0;
+        } else if (item.itemType === 'gain_energy_phineas' && attackerChar.faction === '飛哥家') {
+          energyGain = item.value || 0;
+        } else if (item.itemType === 'gain_energy_doof' && attackerChar.faction === '杜芬舒斯家') {
+          energyGain = item.value || 0;
+        } else if (item.itemType === 'gain_energy_fireside' && attackerChar.faction === '美眉家') {
+          energyGain = item.value || 0;
+        }
         
-        newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
-      } else {
-        nextRound += 1;
-        nextTurn = latestRoom.firstPlayerUid; // Reset to first player
-        nextStatus = 'preparing'; // Go back to preparing for next round
-        // Reset attack flags, resting states, and isMain for next round
-        updatedPlayers.forEach(p => {
-          p.hasAttackedThisTurn = false;
-          p.selectedChars.forEach(c => {
-            if (!c.isMain) c.isResting = false;
-            c.isMain = false; // Reset main for next round selection
-          });
-        });
-        newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+        if (energyGain > 0) {
+          newLogs.push(`獲得了 ${energyGain} 點能量！`);
+        } else if (item.itemType.startsWith('gain_energy_')) {
+          newLogs.push(`道具 ${item.name} 與當前角色陣營不符，未獲得能量。`);
+        }
       }
+
+      const updatedPlayers = latestRoom.players.map(p => {
+        if (p.uid === profile.uid) {
+          return { 
+            ...p, 
+            selectedChars: updatedMyChars, 
+            energy: Math.max(0, p.energy - energyCost + energyGain),
+            items: p.items.filter(i => i.id !== selectedItemId),
+            hasAttackedThisTurn: true,
+            forcedToAttack: false // Reset if I was forced
+          };
+        }
+        if (p.uid === currentOpponent.uid) {
+          return { 
+            ...p, 
+            selectedChars: updatedOpponentChars,
+            forcedToAttack: forcedToAttackOpponent || p.forcedToAttack
+          };
+        }
+        return p;
+      });
+
+      // Check if round ends
+      let nextTurn = currentOpponent.uid;
+      let nextRound = latestRoom.currentRound;
+      let nextStatus = latestRoom.status;
+      let winner = null;
+
+      const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
+      if (bothAttacked) {
+        if (latestRoom.currentRound >= 3) {
+          nextStatus = 'finished';
+          // Determine winner
+          const mySurvivors = updatedMyChars.filter(c => !c.isDead).length;
+          const oppSurvivors = updatedOpponentChars.filter(c => !c.isDead).length;
+          if (mySurvivors > oppSurvivors) winner = profile.uid;
+          else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
+          else winner = 'draw';
+          
+          newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
+        } else {
+          nextRound += 1;
+          nextTurn = latestRoom.firstPlayerUid; // Reset to first player
+          nextStatus = 'preparing'; // Go back to preparing for next round
+          // Reset attack flags, resting states, and isMain for next round
+          updatedPlayers.forEach(p => {
+            p.hasAttackedThisTurn = false;
+            p.selectedChars.forEach(c => {
+              if (!c.isMain) c.isResting = false;
+              c.isMain = false; // Reset main for next round selection
+            });
+          });
+          newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+        }
+      }
+
+      const updates: any = {
+        players: updatedPlayers,
+        turn: nextTurn,
+        currentRound: nextRound,
+        status: nextStatus,
+        logs: newLogs,
+      };
+
+      if (winner) {
+        updates.winner = winner;
+      }
+
+      await gameService.updateRoom(roomId, updates);
+
+      // Reset local selection
+      setSelectedMainId(null);
+      setSelectedTargetId(null);
+      setEnergyToUse(0);
+      setSelectedItemId(null);
+      setUseSkill(false);
+    } catch (error) {
+      console.error('Attack error:', error);
+      toast.error('攻擊執行失敗，請重試');
+    } finally {
+      setIsProcessing(false);
     }
-
-    const updates: any = {
-      players: updatedPlayers,
-      turn: nextTurn,
-      currentRound: nextRound,
-      status: nextStatus,
-      logs: newLogs,
-    };
-
-    if (winner) {
-      updates.winner = winner;
-    }
-
-    await gameService.updateRoom(roomId, updates);
-
-    // Reset local selection
-    setSelectedMainId(null);
-    setSelectedTargetId(null);
-    setEnergyToUse(0);
-    setSelectedItemId(null);
-    setUseSkill(false);
-    setIsProcessing(false);
   };
 
   const handleSkip = async () => {
@@ -323,63 +354,77 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
     }
 
     setIsProcessing(true);
-    const latestRoom = await gameService.getRoom(roomId);
-    if (!latestRoom || latestRoom.turn !== profile.uid) {
-      setIsProcessing(false);
-      return;
-    }
-
-    let newLogs = [...latestRoom.logs];
-    newLogs.push(`${myPlayer.teamId} 選擇了防禦/跳過本回合`);
-
-    const updatedPlayers = latestRoom.players.map(p => {
-      if (p.uid === profile.uid) {
-        return { ...p, hasAttackedThisTurn: true };
+    try {
+      const latestRoom = await gameService.getRoom(roomId);
+      if (!latestRoom || latestRoom.turn !== profile.uid) {
+        setIsProcessing(false);
+        return;
       }
-      return p;
-    });
 
-    // Same logic for round end
-    let nextTurn = opponent.uid;
-    let nextRound = latestRoom.currentRound;
-    let nextStatus = latestRoom.status;
-    let winner = null;
+      const currentMyPlayer = latestRoom.players.find(p => p.uid === profile.uid);
+      const currentOpponent = latestRoom.players.find(p => p.uid !== profile.uid);
 
-    const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
-    if (bothAttacked) {
-      if (latestRoom.currentRound >= 3) {
-        nextStatus = 'finished';
-        const mySurvivors = myPlayer.selectedChars.filter(c => !c.isDead).length;
-        const oppSurvivors = opponent.selectedChars.filter(c => !c.isDead).length;
-        if (mySurvivors > oppSurvivors) winner = profile.uid;
-        else if (oppSurvivors > mySurvivors) winner = opponent.uid;
-        else winner = 'draw';
-        newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
-      } else {
-        nextRound += 1;
-        nextTurn = latestRoom.firstPlayerUid;
-        nextStatus = 'preparing';
-        updatedPlayers.forEach(p => {
-          p.hasAttackedThisTurn = false;
-          p.selectedChars.forEach(c => {
-            if (!c.isMain) c.isResting = false;
-            c.isMain = false;
+      if (!currentMyPlayer || !currentOpponent) {
+        toast.error('對戰資料不完整');
+        setIsProcessing(false);
+        return;
+      }
+
+      let newLogs = [...latestRoom.logs];
+      newLogs.push(`${currentMyPlayer.teamId} 選擇了防禦/跳過本回合`);
+
+      const updatedPlayers = latestRoom.players.map(p => {
+        if (p.uid === profile.uid) {
+          return { ...p, hasAttackedThisTurn: true };
+        }
+        return p;
+      });
+
+      // Same logic for round end
+      let nextTurn = currentOpponent.uid;
+      let nextRound = latestRoom.currentRound;
+      let nextStatus = latestRoom.status;
+      let winner = null;
+
+      const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
+      if (bothAttacked) {
+        if (latestRoom.currentRound >= 3) {
+          nextStatus = 'finished';
+          const mySurvivors = currentMyPlayer.selectedChars.filter(c => !c.isDead).length;
+          const oppSurvivors = currentOpponent.selectedChars.filter(c => !c.isDead).length;
+          if (mySurvivors > oppSurvivors) winner = profile.uid;
+          else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
+          else winner = 'draw';
+          newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
+        } else {
+          nextRound += 1;
+          nextTurn = latestRoom.firstPlayerUid;
+          nextStatus = 'preparing';
+          updatedPlayers.forEach(p => {
+            p.hasAttackedThisTurn = false;
+            p.selectedChars.forEach(c => {
+              if (!c.isMain) c.isResting = false;
+              c.isMain = false;
+            });
           });
-        });
-        newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+          newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+        }
       }
+
+      await gameService.updateRoom(roomId, {
+        players: updatedPlayers,
+        turn: nextTurn,
+        currentRound: nextRound,
+        status: nextStatus,
+        logs: newLogs,
+        winner
+      });
+    } catch (error) {
+      console.error('Skip error:', error);
+      toast.error('跳過回合失敗，請重試');
+    } finally {
+      setIsProcessing(false);
     }
-
-    await gameService.updateRoom(roomId, {
-      players: updatedPlayers,
-      turn: nextTurn,
-      currentRound: nextRound,
-      status: nextStatus,
-      logs: newLogs,
-      winner
-    });
-
-    setIsProcessing(false);
   };
 
   return (
