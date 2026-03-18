@@ -9,6 +9,7 @@ let db: any;
 let googleProvider: GoogleAuthProvider;
 
 try {
+  console.log('Initializing Firebase with config:', firebaseConfig.projectId);
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app, firebaseConfig.firestoreDatabaseId);

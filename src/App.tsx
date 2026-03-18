@@ -17,6 +17,7 @@ import RedeemPage from './pages/RedeemPage';
 
 
 export default function App() {
+  console.log('App component rendering, loading:', loading, 'view:', view);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
@@ -35,6 +36,7 @@ export default function App() {
     console.log('App initialized, starting auth check...');
     // Safety timeout: if auth doesn't respond in 8 seconds, unblock the UI
     const safetyTimeout = setTimeout(() => {
+      console.log('Safety timeout triggered, current loading state:', loading);
       if (loading) {
         console.warn('Auth initialization timed out, unblocking UI');
         setLoading(false);
@@ -188,20 +190,40 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center gap-6 p-4 text-center">
-        <div className="text-2xl font-bold text-sky-600 animate-bounce">載入中...</div>
-        <div className="text-sm text-sky-400 max-w-xs">
-          如果卡住太久，請嘗試重新整理頁面，或檢查瀏覽器是否封裝了第三方 Cookie。
+      <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center gap-6 p-6 text-center">
+        <div className="text-3xl font-black text-sky-600 animate-bounce">載入中...</div>
+        
+        <div className="bg-white/50 backdrop-blur-sm p-6 rounded-3xl border-2 border-sky-200 max-w-sm space-y-4 shadow-inner">
+          <p className="text-sky-700 font-bold">
+            偵測到載入時間較長，這通常是因為瀏覽器封鎖了「第三方 Cookie」。
+          </p>
+          <p className="text-sm text-sky-600/80 leading-relaxed">
+            如果您是在 AI Studio 預覽視窗中查看，請點擊下方按鈕在「新分頁」開啟，即可正常進入。
+          </p>
+          
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={() => window.open(window.location.href, '_blank')}
+              className="w-full py-4 bg-sky-500 text-white rounded-2xl font-black shadow-lg hover:bg-sky-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              在新分頁開啟遊戲
+            </button>
+            
+            <button 
+              onClick={() => {
+                setLoading(false);
+                setView('login');
+              }}
+              className="w-full py-3 bg-white text-sky-500 rounded-xl font-bold border-2 border-sky-100 hover:bg-sky-50 transition-all"
+            >
+              強制進入登入頁面
+            </button>
+          </div>
         </div>
-        <button 
-          onClick={() => {
-            setLoading(false);
-            setView('login');
-          }}
-          className="mt-4 px-4 py-2 bg-white text-sky-600 rounded-xl shadow-md font-bold hover:bg-sky-50 transition-colors"
-        >
-          強制進入登入頁面
-        </button>
+
+        <div className="text-[10px] text-sky-300 font-mono opacity-50">
+          Debug: {auth ? 'Auth OK' : 'Auth Fail'} | {db ? 'DB OK' : 'DB Fail'} | {view}
+        </div>
       </div>
     );
   }
