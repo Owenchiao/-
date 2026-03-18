@@ -37,7 +37,7 @@ export default function LobbyPage({ team, profile, onBack, onEnterRoom }: Props)
       teamName: team.name,
       selectedChars: [],
       items: ITEMS.filter(i => team.inventory.items.includes(i.id)),
-      energy: 2, // Default starting energy
+      energy: 4, // 4 coins as per rules
       hasAttackedThisTurn: false,
       forcedToAttack: false
     };
@@ -58,7 +58,7 @@ export default function LobbyPage({ team, profile, onBack, onEnterRoom }: Props)
       teamName: team.name,
       selectedChars: [],
       items: ITEMS.filter(i => team.inventory.items.includes(i.id)),
-      energy: 2, // Default starting energy
+      energy: 4, // 4 coins as per rules
       hasAttackedThisTurn: false,
       forcedToAttack: false
     };

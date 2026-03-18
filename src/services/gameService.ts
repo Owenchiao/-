@@ -115,16 +115,18 @@ export const gameService = {
   async createRoom(player: PlayerState): Promise<string> {
     try {
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+      // Coin flip: 50/50 chance to determine who goes first
+      const isFirst = Math.random() > 0.5;
       const room: Partial<Room> = {
         id: roomId,
         status: 'waiting',
         players: [player],
-        turn: player.uid,
+        turn: player.uid, // Initially set to creator for waiting phase
         currentRound: 1,
         logs: [`小隊 ${player.teamId} 建立了房間 ${roomId}`],
         createdAt: serverTimestamp(),
         lastActivity: serverTimestamp(),
-        firstPlayerUid: player.uid
+        firstPlayerUid: player.uid // Will be finalized when second player joins
       };
       await setDoc(doc(db, 'rooms', roomId), room);
       return roomId;
@@ -150,6 +152,13 @@ export const gameService = {
       if (updatedPlayers.length === 2) {
         updates.status = 'selecting_chars';
         updates.logs = [...room.logs, `小隊 ${player.teamId} 加入了房間`];
+        
+        // Coin Flip to determine first player for the whole battle
+        const coinFlip = Math.random() > 0.5;
+        const firstPlayerUid = coinFlip ? room.players[0].uid : player.uid;
+        updates.firstPlayerUid = firstPlayerUid;
+        updates.turn = firstPlayerUid;
+        updates.logs.push(`拋擲硬幣結果：${firstPlayerUid === room.players[0].uid ? room.players[0].teamName : player.teamName} 獲得先攻！`);
       }
       updates.lastActivity = serverTimestamp();
 

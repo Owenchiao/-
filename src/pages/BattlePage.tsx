@@ -172,6 +172,17 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       let targetChar = defenderMain;
       const item = currentMyPlayer.items.find(i => i.id === selectedItemId);
       
+      let newLogs = [...latestRoom.logs];
+
+      // Rule: If attacker dies before attacking (due to splash damage from opponent), skip turn
+      if (attackerChar.isDead) {
+        newLogs.push(`${attackerChar.name} 已在發起攻擊前陣亡，攻擊機會結束！`);
+        // We need to update the room logs even if we skip
+        await gameService.updateRoom(roomId, { logs: newLogs });
+        await handleSkip();
+        return;
+      }
+
       if (item?.itemType === 'direct_attack_sub' && selectedTargetId) {
         const subTarget = currentOpponent.selectedChars.find(c => c.id === selectedTargetId);
         if (subTarget) targetChar = subTarget;
@@ -229,14 +240,13 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
       // --- End Animation Sequence ---
 
-      let newLogs = [...latestRoom.logs];
       newLogs.push(`${currentMyPlayer.teamId} 的 ${attackerChar.name} 發動攻擊！`);
       if (advantage) newLogs.push(`屬性克制！額外造成 20 點傷害`);
       if (useSkill) newLogs.push(`使用技能：${attackerChar.skillName}`);
       if (item) newLogs.push(`使用道具：${item.name}`);
 
       // Apply damage to opponent
-      let updatedOpponentChars = applyDamage(currentOpponent.selectedChars, damage, targetChar.id, item);
+      let updatedOpponentChars = applyDamage(currentOpponent.selectedChars, damage, targetChar.id, item, advantage);
       
       // Item effects
       let updatedMyChars = [...currentMyPlayer.selectedChars];

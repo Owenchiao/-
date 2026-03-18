@@ -41,7 +41,8 @@ export const applyDamage = (
   characters: BattleCharacter[],
   mainDamage: number,
   targetId?: string | null,
-  itemUsed?: ItemCard
+  itemUsed?: ItemCard,
+  hasAdvantage: boolean = false
 ) => {
   // Determine who takes 100% damage
   let primaryTargetId: string | null = null;
@@ -60,17 +61,20 @@ export const applyDamage = (
     }
   }
 
+  // Rule: Splash damage (20%) is NOT affected by type advantage (+20)
+  const baseDamageForSplash = hasAdvantage ? Math.max(0, mainDamage - 20) : mainDamage;
+
   return characters.map(char => {
     if (char.isDead) return char;
     
     let damageTaken = 0;
     
     if (char.id === primaryTargetId) {
-      // Primary target takes 100% damage
+      // Primary target takes 100% damage (including advantage)
       damageTaken = mainDamage;
     } else {
-      // Others take 20% splash damage
-      damageTaken = Math.floor(mainDamage * 0.2);
+      // Others take 20% splash damage (based on base damage)
+      damageTaken = Math.floor(baseDamageForSplash * 0.2);
     }
 
     const newHp = Math.max(0, char.currentHp - damageTaken);
