@@ -90,11 +90,12 @@ export const CARDS: CharacterCard[] = [
 
   // 【飛哥家 - 金卡 UR】
   { id: "char_phineas_singer_ur", type: "character", name: "最年輕出道歌手飛哥", faction: "飛哥家", rarity: "UR", atk: 160, hp: 180, skillName: null, skillDescription: "隨機抽取對方一張道具卡並佔為己有", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "random_steal_item", needsManualReview: false },
+  { id: "char_hendel_ur", type: "character", name: "就愛韓德爾", faction: "飛哥家", rarity: "UR", atk: 120, hp: 220, skillName: null, skillDescription: "道具卡效果2倍", skillEnergyCost: 2, skillTrigger: "passive_sub", skillType: "item_effect_double", needsManualReview: false },
+  { id: "char_owen_ur", type: "character", name: "狂熱粉絲歐文", faction: "飛哥家", rarity: "UR", atk: 110, hp: 230, skillName: null, skillDescription: "直接獲得2個能量點並得以直接用於該回合", skillEnergyCost: 2, skillTrigger: "on_enter", skillType: "gain_energy", needsManualReview: false },
 
   // 【杜芬舒斯家 - 金卡 UR】
   { id: "char_norm_army_ur", type: "character", name: "諾姆機器人軍團", faction: "杜芬舒斯家", rarity: "UR", atk: 150, hp: 190, skillName: null, skillDescription: "對方備戰區中一隻角色受到自身攻擊力的傷害，對方可以選擇備戰區受影響對象", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "choose_sub_damage", needsManualReview: false },
   { id: "char_doof_parallel_ur", type: "character", name: "平行時空的杜芬舒斯", faction: "杜芬舒斯家", rarity: "UR", atk: 170, hp: 170, skillName: null, skillDescription: "本回合自身受到傷害減少150點", skillEnergyCost: 2, skillTrigger: "on_defend", skillType: "self_damage_reduction", needsManualReview: false },
-  { id: "char_hendel_ur", type: "character", name: "就愛韓德爾", faction: "杜芬舒斯家", rarity: "UR", atk: 120, hp: 220, skillName: null, skillDescription: "道具卡效果2倍", skillEnergyCost: 2, skillTrigger: "passive_sub", skillType: "item_effect_double", needsManualReview: false },
   { id: "char_squirrels_ur", type: "character", name: "褲子裡有松鼠！", faction: "杜芬舒斯家", rarity: "UR", atk: 120, hp: 220, skillName: null, skillDescription: "自相殘殺，對方主要角色攻擊備戰角色，對方可以選擇備戰區被攻擊對象", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "redirect_attack_to_sub", needsManualReview: false },
 
   // 【美眉家 - 金卡 UR】
