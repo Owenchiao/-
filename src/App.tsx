@@ -25,6 +25,7 @@ export default function App() {
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
 
   console.log('App component rendering, loading:', loading, 'view:', view);
@@ -149,11 +150,17 @@ export default function App() {
       return;
     }
     
+    setResetPassword('');
     setShowResetConfirm(true);
   };
 
   const confirmReset = async () => {
     if (!profile) return;
+    
+    if (resetPassword !== 'owen') {
+      toast.error('密碼錯誤，無法重置');
+      return;
+    }
     
     try {
       setLoading(true);
@@ -187,9 +194,9 @@ export default function App() {
     const userTeamId = `${profile.uid}_${teamId}`;
     let teamData = await gameService.getTeam(userTeamId);
     if (!teamData) {
-      // Define initial cards (3 characters, 1 item as per rules)
-      const initialChars = ['char_phineas_c', 'char_ferb_c', 'char_isabella_c'];
-      const initialItems = ['item_heal_50'];
+      // Start with empty inventory as requested
+      const initialChars: string[] = [];
+      const initialItems: string[] = [];
 
       teamData = {
         id: userTeamId,
@@ -200,37 +207,7 @@ export default function App() {
         }
       };
       await gameService.updateTeam(teamData);
-
-      // Record acquisitions
-      const { CHARACTERS, ITEMS } = await import('./constants');
-      for (const charId of initialChars) {
-        const char = CHARACTERS.find(c => c.id === charId);
-        if (char) {
-          await gameService.recordCardAcquisition({
-            id: '',
-            userId: profile.uid,
-            cardId: charId,
-            cardName: char.name,
-            cardType: 'character',
-            source: 'initial',
-            timestamp: null
-          });
-        }
-      }
-      for (const itemId of initialItems) {
-        const item = ITEMS.find(i => i.id === itemId);
-        if (item) {
-          await gameService.recordCardAcquisition({
-            id: '',
-            userId: profile.uid,
-            cardId: itemId,
-            cardName: item.name,
-            cardType: 'item',
-            source: 'initial',
-            timestamp: null
-          });
-        }
-      }
+      toast.success('小隊已初始化，背包目前為空');
     }
     setTeam(teamData);
     setView('main_menu');
@@ -376,9 +353,21 @@ export default function App() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-4 border-red-500 animate-in zoom-in duration-200">
             <h3 className="text-2xl font-black text-red-600 mb-4">確定要重置嗎？</h3>
-            <p className="text-gray-600 font-bold mb-8 leading-relaxed">
+            <p className="text-gray-600 font-bold mb-4 leading-relaxed">
               這將會刪除您的小隊資料與背包卡片，且無法復原。您將需要重新選擇小隊並重新登錄卡片。
             </p>
+            
+            <div className="mb-8 space-y-2">
+              <label className="text-sm font-black text-slate-500 uppercase tracking-widest">請輸入管理密碼</label>
+              <input 
+                type="password"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                placeholder="輸入密碼..."
+                className="w-full bg-slate-100 border-2 border-slate-200 rounded-2xl p-4 font-bold focus:outline-none focus:border-red-400 transition-all"
+              />
+            </div>
+
             <div className="flex gap-4">
               <button 
                 onClick={() => setShowResetConfirm(false)}

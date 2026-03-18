@@ -269,26 +269,32 @@ export const gameService = {
     try {
       // 1. Reset User Profile (keep uid and email, but clear selectedTeamId)
       const userRef = doc(db, 'users', uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        const profile = userSnap.data() as UserProfile;
-        await setDoc(userRef, {
-          uid: profile.uid,
-          email: profile.email,
-          displayName: profile.displayName,
-          selectedTeamId: null
-        });
-      }
+      await updateDoc(userRef, {
+        selectedTeamId: null
+      });
 
       // 2. Delete ALL possible Team Data for this user
       const { TEAMS } = await import('../constants');
-      const deletePromises = TEAMS.map(teamId => {
+      const deleteTeamPromises = TEAMS.map(teamId => {
         const userTeamId = `${uid}_${teamId}`;
         return deleteDoc(doc(db, 'teams', userTeamId));
       });
       
-      await Promise.all(deletePromises);
-      console.log(`Successfully cleared all ${TEAMS.length} team slots for user ${uid}`);
+      await Promise.all(deleteTeamPromises);
+
+      // 3. Clear Battle History
+      const historyQuery = query(collection(db, 'battle_history'), where('userId', '==', uid));
+      const historySnap = await getDocs(historyQuery);
+      const deleteHistoryPromises = historySnap.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deleteHistoryPromises);
+
+      // 4. Clear Card Acquisitions
+      const acquisitionQuery = query(collection(db, 'card_acquisitions'), where('userId', '==', uid));
+      const acquisitionSnap = await getDocs(acquisitionQuery);
+      const deleteAcquisitionPromises = acquisitionSnap.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deleteAcquisitionPromises);
+
+      console.log(`Successfully cleared all game data for user ${uid}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `reset/${uid}`);
     }
