@@ -14,6 +14,7 @@ import LobbyPage from './pages/LobbyPage';
 import CharacterSelectionPage from './pages/CharacterSelectionPage';
 import BattlePage from './pages/BattlePage';
 import RedeemPage from './pages/RedeemPage';
+import HistoryPage from './pages/HistoryPage';
 
 
 export default function App() {
@@ -186,15 +187,50 @@ export default function App() {
     const userTeamId = `${profile.uid}_${teamId}`;
     let teamData = await gameService.getTeam(userTeamId);
     if (!teamData) {
+      // Define initial cards (3 characters, 1 item as per rules)
+      const initialChars = ['char_phineas_c', 'char_ferb_c', 'char_isabella_c'];
+      const initialItems = ['item_heal_50'];
+
       teamData = {
         id: userTeamId,
         name: `小隊 ${teamId}`,
         inventory: {
-          characters: [], // Start empty after reset
-          items: []       // Start empty after reset
+          characters: initialChars,
+          items: initialItems
         }
       };
       await gameService.updateTeam(teamData);
+
+      // Record acquisitions
+      const { CHARACTERS, ITEMS } = await import('./constants');
+      for (const charId of initialChars) {
+        const char = CHARACTERS.find(c => c.id === charId);
+        if (char) {
+          await gameService.recordCardAcquisition({
+            id: '',
+            userId: profile.uid,
+            cardId: charId,
+            cardName: char.name,
+            cardType: 'character',
+            source: 'initial',
+            timestamp: null
+          });
+        }
+      }
+      for (const itemId of initialItems) {
+        const item = ITEMS.find(i => i.id === itemId);
+        if (item) {
+          await gameService.recordCardAcquisition({
+            id: '',
+            userId: profile.uid,
+            cardId: itemId,
+            cardName: item.name,
+            cardType: 'item',
+            source: 'initial',
+            timestamp: null
+          });
+        }
+      }
     }
     setTeam(teamData);
     setView('main_menu');
@@ -325,6 +361,13 @@ export default function App() {
           team={team} 
           onBack={() => setView('main_menu')} 
           onUpdateTeam={setTeam}
+        />
+      )}
+
+      {view === 'history' && profile && (
+        <HistoryPage 
+          profile={profile} 
+          onBack={() => setView('main_menu')} 
         />
       )}
 

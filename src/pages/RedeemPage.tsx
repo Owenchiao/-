@@ -44,6 +44,18 @@ export default function RedeemPage({ team, onBack, onUpdateTeam }: Props) {
 
     try {
       await gameService.updateTeam(updatedTeam);
+      
+      // Record acquisition
+      await gameService.recordCardAcquisition({
+        id: '',
+        userId: team.id.split('_')[0], // Extract UID from teamId
+        cardId: card.id,
+        cardName: card.name,
+        cardType: isChar ? 'character' : 'item',
+        source: 'redeem',
+        timestamp: null
+      });
+
       onUpdateTeam(updatedTeam);
       toast.success(`成功將「${card.name}」加入背包！`);
     } catch (error) {

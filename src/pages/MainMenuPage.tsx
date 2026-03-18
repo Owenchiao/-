@@ -48,6 +48,12 @@ export default function MainMenuPage({ team, onNavigate, onLogout, onReset, setC
             onClick={() => onNavigate('inventory')}
           />
           <MenuButton 
+            icon={<Trophy className="w-10 h-10" />}
+            label="個人紀錄"
+            color="bg-amber-500"
+            onClick={() => onNavigate('history')}
+          />
+          <MenuButton 
             icon={<LogOut className="w-10 h-10" />}
             label="登出系統"
             color="bg-red-500"

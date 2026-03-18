@@ -1,4 +1,4 @@
-export type View = 'login' | 'team_selection' | 'main_menu' | 'inventory' | 'lobby' | 'selecting_chars' | 'battle' | 'redeem';
+export type View = 'login' | 'team_selection' | 'main_menu' | 'inventory' | 'lobby' | 'selecting_chars' | 'battle' | 'redeem' | 'history';
 
 export type Rarity = 'C' | 'R' | 'U' | 'UR';
 export type Faction = '飛哥家' | '杜芬舒斯家' | '美眉家';
@@ -111,4 +111,24 @@ export interface Room {
   createdAt: any;
   firstPlayerUid: string;
   lastActivity: any;
+}
+
+export interface BattleHistory {
+  id: string;
+  userId: string;
+  opponentId: string;
+  opponentTeamName: string;
+  result: 'win' | 'loss' | 'draw';
+  timestamp: any;
+  roomId: string;
+}
+
+export interface CardAcquisition {
+  id: string;
+  userId: string;
+  cardId: string;
+  cardName: string;
+  cardType: 'character' | 'item' | 'energy';
+  source: 'initial' | 'redeem' | 'battle_reward';
+  timestamp: any;
 }

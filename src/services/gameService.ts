@@ -15,7 +15,7 @@ import {
   getDocFromServer
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { Team, UserProfile, Room, PlayerState, BattleCharacter } from '../types';
+import { Team, UserProfile, Room, PlayerState, BattleCharacter, BattleHistory, CardAcquisition } from '../types';
 
 enum OperationType {
   CREATE = 'create',
@@ -291,6 +291,62 @@ export const gameService = {
       console.log(`Successfully cleared all ${TEAMS.length} team slots for user ${uid}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `reset/${uid}`);
+    }
+  },
+
+  async recordBattleResult(history: BattleHistory) {
+    try {
+      const historyRef = doc(collection(db, 'battle_history'));
+      await setDoc(historyRef, {
+        ...history,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'battle_history');
+    }
+  },
+
+  async recordCardAcquisition(acquisition: CardAcquisition) {
+    try {
+      const acquisitionRef = doc(collection(db, 'card_acquisitions'));
+      await setDoc(acquisitionRef, {
+        ...acquisition,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'card_acquisitions');
+    }
+  },
+
+  async getBattleHistory(userId: string): Promise<BattleHistory[]> {
+    try {
+      const q = query(
+        collection(db, 'battle_history'),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc'),
+        limit(20)
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BattleHistory));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'battle_history');
+      return [];
+    }
+  },
+
+  async getCardAcquisitionHistory(userId: string): Promise<CardAcquisition[]> {
+    try {
+      const q = query(
+        collection(db, 'card_acquisitions'),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardAcquisition));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'card_acquisitions');
+      return [];
     }
   }
 };

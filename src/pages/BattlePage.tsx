@@ -29,6 +29,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [useSkill, setUseSkill] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasRecordedResult, setHasRecordedResult] = useState(false);
   
   // Animation States
   const [attackingId, setAttackingId] = useState<string | null>(null);
@@ -57,6 +58,24 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [room?.logs]);
+
+  useEffect(() => {
+    if (room?.status === 'finished' && !hasRecordedResult) {
+      const result = room.winner === profile.uid ? 'win' : (room.winner === 'draw' ? 'draw' : 'loss');
+      const opponentPlayer = room.players.find(p => p.uid !== profile.uid);
+      
+      gameService.recordBattleResult({
+        id: '', 
+        userId: profile.uid,
+        opponentId: opponentPlayer?.uid || 'unknown',
+        opponentTeamName: opponentPlayer?.teamName || 'unknown',
+        result,
+        timestamp: null,
+        roomId: roomId
+      });
+      setHasRecordedResult(true);
+    }
+  }, [room?.status, profile.uid, roomId, room?.winner, room?.players, hasRecordedResult]);
 
   if (!room) return null;
 
