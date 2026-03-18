@@ -50,7 +50,7 @@ service cloud.firestore {
 
     function isValidRoom(data) {
       return data.keys().hasAll(['status', 'players', 'createdAt']) &&
-             data.status in ['waiting', 'selecting_chars', 'battle', 'finished'];
+             data.status in ['waiting', 'selecting_chars', 'preparing', 'battle', 'finished'];
     }
 
     // ===============================================================

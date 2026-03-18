@@ -74,6 +74,21 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       const latestRoom = await gameService.getRoom(roomId);
       if (!latestRoom) return;
 
+      const player = latestRoom.players.find(p => p.uid === profile.uid);
+      const selectedChar = player?.selectedChars.find(c => c.id === selectedMainId);
+      
+      if (!selectedChar) {
+        toast.error('請先選擇一位角色');
+        setIsProcessing(false);
+        return;
+      }
+
+      if (selectedChar.isDead) {
+        toast.error('不能選擇已陣亡的角色');
+        setIsProcessing(false);
+        return;
+      }
+
       const updatedPlayers = latestRoom.players.map(p => {
         if (p.uid === profile.uid) {
           return {
@@ -145,8 +160,14 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         console.warn('No main character found in battle phase, using selected character as recovery.');
       }
 
-      const defenderMain = currentOpponent.selectedChars.find(c => c.isMain) || currentOpponent.selectedChars.find(c => !c.isDead)!;
+      const defenderMain = currentOpponent.selectedChars.find(c => c.isMain) || currentOpponent.selectedChars.find(c => !c.isDead);
       
+      if (!defenderMain) {
+        toast.error('對手已無存活角色');
+        setIsProcessing(false);
+        return;
+      }
+
       // Determine target
       let targetChar = defenderMain;
       const item = currentMyPlayer.items.find(i => i.id === selectedItemId);
@@ -156,7 +177,21 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         if (subTarget) targetChar = subTarget;
       }
 
+      if (!attackerChar || !targetChar) {
+        toast.error('攻擊目標或發動者無效');
+        setIsProcessing(false);
+        return;
+      }
+
       const { damage, advantage } = calculateDamage(attackerChar, targetChar, energyToUse, useSkill, item);
+
+      // Check energy cost
+      const energyCost = energyToUse + (useSkill ? attackerChar.skillEnergyCost || 0 : 0);
+      if (energyCost > currentMyPlayer.energy) {
+        toast.error('能量不足');
+        setIsProcessing(false);
+        return;
+      }
 
       // --- Start Animation Sequence ---
       
@@ -242,9 +277,6 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       }));
 
       // Update energy
-      let energyCost = energyToUse;
-      if (useSkill) energyCost += attackerChar.skillEnergyCost || 0;
-
       let energyGain = 0;
       if (item) {
         if (item.itemType === 'gain_energy') {
@@ -285,37 +317,45 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         return p;
       });
 
-      // Check if round ends
+      // Check if game ends immediately (one side all dead)
+      const mySurvivors = updatedMyChars.filter(c => !c.isDead).length;
+      const oppSurvivors = updatedOpponentChars.filter(c => !c.isDead).length;
+      
       let nextTurn = currentOpponent.uid;
       let nextRound = latestRoom.currentRound;
       let nextStatus = latestRoom.status;
       let winner = null;
 
-      const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
-      if (bothAttacked) {
-        if (latestRoom.currentRound >= 3) {
-          nextStatus = 'finished';
-          // Determine winner
-          const mySurvivors = updatedMyChars.filter(c => !c.isDead).length;
-          const oppSurvivors = updatedOpponentChars.filter(c => !c.isDead).length;
-          if (mySurvivors > oppSurvivors) winner = profile.uid;
-          else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
-          else winner = 'draw';
-          
-          newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
-        } else {
-          nextRound += 1;
-          nextTurn = latestRoom.firstPlayerUid; // Reset to first player
-          nextStatus = 'preparing'; // Go back to preparing for next round
-          // Reset attack flags, resting states, and isMain for next round
-          updatedPlayers.forEach(p => {
-            p.hasAttackedThisTurn = false;
-            p.selectedChars.forEach(c => {
-              if (!c.isMain) c.isResting = false;
-              c.isMain = false; // Reset main for next round selection
+      if (mySurvivors === 0 || oppSurvivors === 0) {
+        nextStatus = 'finished';
+        if (mySurvivors > oppSurvivors) winner = profile.uid;
+        else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
+        else winner = 'draw';
+        newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
+      } else {
+        // Check if round ends (both have taken their turn)
+        const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
+        if (bothAttacked) {
+          if (latestRoom.currentRound >= 3) {
+            nextStatus = 'finished';
+            if (mySurvivors > oppSurvivors) winner = profile.uid;
+            else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
+            else winner = 'draw';
+            newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
+          } else {
+            nextRound += 1;
+            nextTurn = latestRoom.firstPlayerUid; // Reset to first player
+            nextStatus = 'preparing'; // Go back to preparing for next round
+            // Reset attack flags and ALL resting states for next round
+            updatedPlayers.forEach(p => {
+              p.hasAttackedThisTurn = false;
+              p.selectedChars.forEach(c => {
+                c.isResting = false; // Clear resting state for next round
+                c.isMain = false; // Reset main for next round selection
+              });
             });
-          });
-          newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+            newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+          }
         }
       }
 
@@ -380,34 +420,44 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         return p;
       });
 
-      // Same logic for round end
+      // Check if game ends immediately
+      const mySurvivors = currentMyPlayer.selectedChars.filter(c => !c.isDead).length;
+      const oppSurvivors = currentOpponent.selectedChars.filter(c => !c.isDead).length;
+
       let nextTurn = currentOpponent.uid;
       let nextRound = latestRoom.currentRound;
       let nextStatus = latestRoom.status;
       let winner = null;
 
-      const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
-      if (bothAttacked) {
-        if (latestRoom.currentRound >= 3) {
-          nextStatus = 'finished';
-          const mySurvivors = currentMyPlayer.selectedChars.filter(c => !c.isDead).length;
-          const oppSurvivors = currentOpponent.selectedChars.filter(c => !c.isDead).length;
-          if (mySurvivors > oppSurvivors) winner = profile.uid;
-          else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
-          else winner = 'draw';
-          newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
-        } else {
-          nextRound += 1;
-          nextTurn = latestRoom.firstPlayerUid;
-          nextStatus = 'preparing';
-          updatedPlayers.forEach(p => {
-            p.hasAttackedThisTurn = false;
-            p.selectedChars.forEach(c => {
-              if (!c.isMain) c.isResting = false;
-              c.isMain = false;
+      if (mySurvivors === 0 || oppSurvivors === 0) {
+        nextStatus = 'finished';
+        if (mySurvivors > oppSurvivors) winner = profile.uid;
+        else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
+        else winner = 'draw';
+        newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
+      } else {
+        // Same logic for round end
+        const bothAttacked = updatedPlayers.every(p => p.hasAttackedThisTurn);
+        if (bothAttacked) {
+          if (latestRoom.currentRound >= 3) {
+            nextStatus = 'finished';
+            if (mySurvivors > oppSurvivors) winner = profile.uid;
+            else if (oppSurvivors > mySurvivors) winner = currentOpponent.uid;
+            else winner = 'draw';
+            newLogs.push(`對戰結束！${winner === 'draw' ? '平手' : (winner === profile.uid ? '你獲勝了！' : '對手獲勝了')}`);
+          } else {
+            nextRound += 1;
+            nextTurn = latestRoom.firstPlayerUid;
+            nextStatus = 'preparing';
+            updatedPlayers.forEach(p => {
+              p.hasAttackedThisTurn = false;
+              p.selectedChars.forEach(c => {
+                c.isResting = false;
+                c.isMain = false;
+              });
             });
-          });
-          newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+            newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
+          }
         }
       }
 
@@ -419,6 +469,12 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         logs: newLogs,
         winner
       });
+
+      // Reset local selection states
+      setEnergyToUse(0);
+      setUseSkill(false);
+      setSelectedItemId(null);
+      setSelectedTargetId(null);
     } catch (error) {
       console.error('Skip error:', error);
       toast.error('跳過回合失敗，請重試');
@@ -624,15 +680,39 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               <p className="text-slate-400 font-bold">請查看結算畫面</p>
             </div>
           ) : room.status === 'preparing' ? (
-            <div className="text-center space-y-6 py-8">
-              <Shield className="w-16 h-16 text-sky-500 mx-auto animate-pulse" />
+            <div className="text-center space-y-6 py-8 bg-sky-500/10 rounded-3xl border-2 border-sky-500/30 p-6">
+              <div className="relative">
+                <Shield className="w-16 h-16 text-sky-500 mx-auto animate-pulse" />
+                <motion.div 
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  className="absolute top-0 right-1/2 translate-x-8 bg-orange-500 text-[10px] font-black px-2 py-0.5 rounded-full"
+                >
+                  PHASE 1
+                </motion.div>
+              </div>
               <div className="space-y-2">
-                <h4 className="text-2xl font-black">準備階段</h4>
-                <p className="text-slate-400 font-bold">請點擊下方角色指派為主戰位</p>
+                <h4 className="text-2xl font-black text-sky-400">準備階段</h4>
+                <p className="text-slate-300 font-bold">請從下方存活角色中挑選一位指派為主戰位</p>
               </div>
               
+              <div className="flex justify-center gap-4 py-2">
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${myPlayer.selectedChars.some(c => c.isMain) ? 'bg-green-500 border-green-400' : 'bg-slate-800 border-slate-700'}`}>
+                    {myPlayer.selectedChars.some(c => c.isMain) && <Check className="w-4 h-4 text-white" />}
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400">你</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${opponent.selectedChars.some(c => c.isMain) ? 'bg-green-500 border-green-400' : 'bg-slate-800 border-slate-700'}`}>
+                    {opponent.selectedChars.some(c => c.isMain) && <Check className="w-4 h-4 text-white" />}
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400">對手</span>
+                </div>
+              </div>
+
               {myPlayer.selectedChars.some(c => c.isMain) ? (
-                <div className="bg-green-500/20 border border-green-500/50 p-4 rounded-2xl text-green-400 font-bold flex items-center justify-center gap-2">
+                <div className="bg-green-500/20 border border-green-500/50 p-4 rounded-2xl text-green-400 font-bold flex items-center justify-center gap-2 animate-pulse">
                   <Check className="w-5 h-5" /> 已就緒，等待對手...
                 </div>
               ) : (
