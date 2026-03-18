@@ -183,15 +183,6 @@ export default function App() {
     return (
       <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center gap-6">
         <div className="text-2xl font-bold text-sky-600 animate-bounce">載入中...</div>
-        <button 
-          onClick={() => {
-            setLoading(false);
-            setView('login');
-          }}
-          className="px-6 py-2 bg-white/50 hover:bg-white text-sky-600 rounded-full text-sm font-bold transition-all border border-sky-200"
-        >
-          載入太久？點此跳過
-        </button>
       </div>
     );
   }
