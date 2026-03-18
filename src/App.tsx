@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously, signOut, User, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { gameService } from './services/gameService';
 import { UserProfile, Team, View } from './types';
 import { Toaster, toast } from 'react-hot-toast';
@@ -17,7 +17,6 @@ import RedeemPage from './pages/RedeemPage';
 
 
 export default function App() {
-  console.log('App component rendering, loading:', loading, 'view:', view);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
@@ -26,6 +25,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+
+  console.log('App component rendering, loading:', loading, 'view:', view);
 
   useEffect(() => {
     // Detect In-App Browsers (Line, FB, IG, etc.)
