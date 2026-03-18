@@ -101,7 +101,7 @@ export interface PlayerState {
 
 export interface Room {
   id: string;
-  status: 'waiting' | 'selecting_chars' | 'battle' | 'finished';
+  status: 'waiting' | 'selecting_chars' | 'preparing' | 'battle' | 'finished';
   players: PlayerState[];
   turn: string; // uid
   currentRound: number;

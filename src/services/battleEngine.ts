@@ -39,14 +39,22 @@ export const calculateDamage = (
 
 export const applyDamage = (
   characters: BattleCharacter[],
-  mainDamage: number,
-  isMainTarget: boolean
+  mainDamage: number
 ) => {
+  const hasMain = characters.some(c => c.isMain && !c.isDead);
+  let proxyTargetId: string | null = null;
+
+  // If no main character, the first alive sub character takes the full hit
+  if (!hasMain) {
+    const firstAlive = characters.find(c => !c.isDead);
+    if (firstAlive) proxyTargetId = firstAlive.id;
+  }
+
   return characters.map(char => {
     if (char.isDead) return char;
     
     let damageTaken = 0;
-    if (char.isMain) {
+    if (char.isMain || char.id === proxyTargetId) {
       damageTaken = mainDamage;
     } else {
       damageTaken = Math.floor(mainDamage * 0.2);
