@@ -70,6 +70,7 @@ export const CARDS: CharacterCard[] = [
   { id: "char_perry_mech_u", type: "character", name: "機械獸泰瑞（超時空之謎）", faction: "飛哥家", rarity: "U", atk: 130, hp: 170, skillName: null, skillDescription: "替換登場的第一回合，免疫該回合20點傷害", skillEnergyCost: 1, skillTrigger: "on_enter", skillType: "self_guard_first_turn", needsManualReview: false },
   { id: "char_phineas_agent_u", type: "character", name: "特務飛哥（超時空之謎）", faction: "飛哥家", rarity: "U", atk: 120, hp: 180, skillName: null, skillDescription: "攻擊命中後，對敵方備戰區生命值最低的角色造成15點濺射傷害", skillEnergyCost: 1, skillTrigger: "after_attack", skillType: "hit_lowest_sub", needsManualReview: false },
   { id: "char_charles_u", type: "character", name: "查爾斯冰冰四世", faction: "飛哥家", rarity: "U", atk: 90, hp: 210, skillName: null, skillDescription: "可以讓對方本回合無法使用技能", skillEnergyCost: 1, skillTrigger: "on_attack", skillType: "disable_enemy_skill", needsManualReview: false },
+  { id: "char_candace_mars_u", type: "character", name: "火星女王凱蒂絲", faction: "飛哥家", rarity: "U", atk: 80, hp: 230, skillName: null, skillDescription: "登場時使敵方當前角色在下一回合無法使用任何特殊技能（此技能不消耗能量點，視為被動技能）", skillEnergyCost: 0, skillTrigger: "on_enter", skillType: "disable_enemy_skill", needsManualReview: false },
 
   // 【杜芬舒斯家 - 稀有 U】
   { id: "char_milly_cookie_u", type: "character", name: "可愛水果餅4277", faction: "杜芬舒斯家", rarity: "U", atk: 90, hp: 220, skillName: null, skillDescription: "擲硬幣2次，增加出現正面次數*30的傷害", skillEnergyCost: 1, skillTrigger: "on_attack", skillType: "coin_damage", needsManualReview: false },
@@ -85,7 +86,6 @@ export const CARDS: CharacterCard[] = [
   { id: "char_ginger_wind_u", type: "character", name: "疾風小金", faction: "美眉家", rarity: "U", atk: 125, hp: 190, skillName: null, skillDescription: "進入防禦狀態時，本回合受到的所有傷害固定減少25點（最低不低於5點）", skillEnergyCost: 1, skillTrigger: "on_defend", skillType: "self_damage_reduction", needsManualReview: false },
   { id: "char_brigitte_steel_u", type: "character", name: "鋼鐵布麗姬", faction: "美眉家", rarity: "U", atk: 95, hp: 220, skillName: null, skillDescription: "戰鬥結束後若此卡存活，立即為自身與一名備戰區隊友恢復15點生命值", skillEnergyCost: 1, skillTrigger: "after_battle", skillType: "heal_sub_fixed", needsManualReview: false },
   { id: "char_isabella_goddess_u", type: "character", name: "女神伊莎貝拉", faction: "美眉家", rarity: "U", atk: 145, hp: 170, skillName: null, skillDescription: "若己方場上已有受傷角色，此卡登場時攻擊力提升30點，持續一輪", skillEnergyCost: 1, skillTrigger: "on_enter", skillType: "atk_up_fixed", needsManualReview: false },
-  { id: "char_candace_mars_u", type: "character", name: "火星女王凱蒂絲", faction: "美眉家", rarity: "U", atk: 80, hp: 230, skillName: null, skillDescription: "登場時使敵方當前角色在下一回合無法使用任何特殊技能", skillEnergyCost: 1, skillTrigger: "on_enter", skillType: "disable_enemy_skill", needsManualReview: false },
   { id: "char_melissa_legend_u", type: "character", name: "傳奇梅莉莎", faction: "美眉家", rarity: "U", atk: 120, hp: 200, skillName: null, skillDescription: "當此卡在備戰區時，場上隊友受到致命傷時可強制保留10點生命值不陣亡", skillEnergyCost: 1, skillTrigger: "passive_sub", skillType: "protect_ally_in_sub", needsManualReview: false },
 
   // 【飛哥家 - 金卡 UR】
