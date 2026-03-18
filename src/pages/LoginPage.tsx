@@ -29,6 +29,10 @@ export default function LoginPage({ onGoogleLogin }: Props) {
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-8 h-8" alt="Google" />
             使用 Google 登入
           </button>
+          
+          <div className="text-xs text-white/60 mt-4 leading-relaxed">
+            * 如果無法登入，請確保瀏覽器允許「第三方 Cookie」或嘗試使用「無痕模式」以外的視窗。
+          </div>
         </div>
         <p className="text-sm opacity-70 italic">
           「嘿，小佛，我知道我們今天要做什麼了！」

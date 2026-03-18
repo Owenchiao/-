@@ -44,6 +44,13 @@ export default function App() {
 
     let unsubscribe: (() => void) | undefined;
 
+    if (!auth) {
+      console.error('Firebase Auth not initialized');
+      setLoading(false);
+      setView('login');
+      return;
+    }
+
     try {
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         try {
@@ -181,8 +188,20 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center gap-6">
+      <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center gap-6 p-4 text-center">
         <div className="text-2xl font-bold text-sky-600 animate-bounce">載入中...</div>
+        <div className="text-sm text-sky-400 max-w-xs">
+          如果卡住太久，請嘗試重新整理頁面，或檢查瀏覽器是否封裝了第三方 Cookie。
+        </div>
+        <button 
+          onClick={() => {
+            setLoading(false);
+            setView('login');
+          }}
+          className="mt-4 px-4 py-2 bg-white text-sky-600 rounded-xl shadow-md font-bold hover:bg-sky-50 transition-colors"
+        >
+          強制進入登入頁面
+        </button>
       </div>
     );
   }
