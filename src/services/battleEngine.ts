@@ -5,9 +5,21 @@ export const calculateDamage = (
   defender: BattleCharacter,
   energyUsed: number,
   skillUsed: boolean,
-  itemUsed?: ItemCard
+  itemUsed?: ItemCard,
+  defenderItems?: ItemCard[]
 ) => {
   let damage = attacker.atk;
+  let isMiss = false;
+
+  // 1. Check for Hologram Device (coin_flip_miss) on defender
+  const hologram = defenderItems?.find(i => i.itemType === 'coin_flip_miss');
+  if (hologram) {
+    const coinFlip = Math.random() > 0.5;
+    if (coinFlip) {
+      isMiss = true;
+      return { damage: 0, advantage: false, isMiss: true };
+    }
+  }
 
   // Energy boost
   if (energyUsed === 1) damage += 20;
@@ -34,7 +46,15 @@ export const calculateDamage = (
     damage += 20;
   }
 
-  return { damage, advantage };
+  // 2. Terminator Ray (execute_if_below_half)
+  if (itemUsed?.itemType === 'execute_if_below_half') {
+    const threshold = (itemUsed.value || 50) / 100;
+    if (defender.currentHp <= defender.maxHp * threshold) {
+      damage = defender.currentHp; // Direct execute
+    }
+  }
+
+  return { damage, advantage, isMiss: false };
 };
 
 export const applyDamage = (
@@ -42,7 +62,8 @@ export const applyDamage = (
   mainDamage: number,
   targetId?: string | null,
   itemUsed?: ItemCard,
-  hasAdvantage: boolean = false
+  hasAdvantage: boolean = false,
+  defenderItems?: ItemCard[]
 ) => {
   // Determine who takes 100% damage
   let primaryTargetId: string | null = null;
@@ -61,6 +82,10 @@ export const applyDamage = (
     }
   }
 
+  // 3. Ferb's Blueprint (half_damage) on defender
+  const halfDamageItem = defenderItems?.find(i => i.itemType === 'half_damage');
+  const damageMultiplier = halfDamageItem ? 0.5 : 1;
+
   // Rule: Splash damage (20%) is NOT affected by type advantage (+20)
   const baseDamageForSplash = hasAdvantage ? Math.max(0, mainDamage - 20) : mainDamage;
 
@@ -71,10 +96,10 @@ export const applyDamage = (
     
     if (char.id === primaryTargetId) {
       // Primary target takes 100% damage (including advantage)
-      damageTaken = mainDamage;
+      damageTaken = Math.floor(mainDamage * damageMultiplier);
     } else {
       // Others take 20% splash damage (based on base damage)
-      damageTaken = Math.floor(baseDamageForSplash * 0.2);
+      damageTaken = Math.floor(baseDamageForSplash * 0.2 * damageMultiplier);
     }
 
     const newHp = Math.max(0, char.currentHp - damageTaken);

@@ -95,6 +95,7 @@ export interface PlayerState {
   teamName: string;
   selectedChars: BattleCharacter[];
   items: ItemCard[];
+  activeEffects?: ItemCard[]; // New field for reactive items
   energy: number;
   hasAttackedThisTurn: boolean;
   forcedToAttack?: boolean;

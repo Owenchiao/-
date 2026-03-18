@@ -31,6 +31,127 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasRecordedResult, setHasRecordedResult] = useState(false);
   
+  const handleUseItem = async (itemId: string) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const latestRoom = await gameService.getRoom(roomId);
+      if (!latestRoom) return;
+
+      const myP = latestRoom.players.find(p => p.uid === profile.uid);
+      const oppP = latestRoom.players.find(p => p.uid !== profile.uid);
+      if (!myP || !oppP) return;
+
+      // Check for Time Stopper (disable_enemy_items) on opponent
+      if (oppP.activeEffects?.some(i => i.itemType === 'disable_enemy_items')) {
+        toast.error('對手使用了時間停止器，本回合你無法使用道具卡！');
+        setIsProcessing(false);
+        return;
+      }
+
+      const item = myP.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      let updatedMyChars = [...myP.selectedChars];
+      let updatedOppChars = [...oppP.selectedChars];
+      let newLogs = [...latestRoom.logs];
+      let energyGain = 0;
+
+      if (item.itemType === 'heal') {
+        const healAmount = item.value || 60;
+        // Heal selected character or main character
+        const targetId = selectedMainId || updatedMyChars.find(c => c.isMain)?.id;
+        if (targetId) {
+          let targetName = '';
+          updatedMyChars = updatedMyChars.map(c => {
+            if (c.id === targetId) {
+              targetName = c.name;
+              return {
+                ...c,
+                currentHp: Math.min(c.maxHp, c.currentHp + healAmount),
+                isDead: false
+              };
+            }
+            return c;
+          });
+          newLogs.push(`${myP.teamName} 使用了 ${item.name}，恢復了 ${targetName} ${healAmount} 點生命！`);
+        } else {
+          toast.error('請先選擇要治療的角色');
+          setIsProcessing(false);
+          return;
+        }
+      } else if (item.itemType === 'force_swap_main') {
+        const aliveSubs = updatedOppChars.filter(c => !c.isMain && !c.isDead);
+        if (aliveSubs.length > 0) {
+          const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+          updatedOppChars = updatedOppChars.map(c => ({
+            ...c,
+            isMain: c.id === randomSub.id
+          }));
+          newLogs.push(`${myP.teamName} 使用了 ${item.name}！對手被迫更換主戰角色為 ${randomSub.name}！`);
+        }
+      } else if (item.itemType === 'swap_main_sub') {
+        const main = updatedMyChars.find(c => c.isMain);
+        const aliveSubs = updatedMyChars.filter(c => !c.isMain && !c.isDead);
+        if (main && aliveSubs.length > 0) {
+          const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+          updatedMyChars = updatedMyChars.map(c => {
+            if (c.id === main.id) return { ...c, isMain: false };
+            if (c.id === randomSub.id) return { ...c, isMain: true };
+            return c;
+          });
+          newLogs.push(`${myP.teamName} 使用了 ${item.name}，更換主戰角色為 ${randomSub.name}！`);
+        }
+      } else if (item.itemType === 'gain_energy') {
+        energyGain = item.value || 0;
+        newLogs.push(`${myP.teamName} 使用了 ${item.name}，獲得 ${energyGain} 點能量！`);
+      } else if (item.itemType === 'coin_flip_miss' || item.itemType === 'half_damage' || item.itemType === 'disable_enemy_items') {
+        newLogs.push(`${myP.teamName} 啟動了 ${item.name}！效力將在對手下次攻擊時生效。`);
+        
+        const updatedPlayers = latestRoom.players.map(p => {
+          if (p.uid === profile.uid) {
+            return {
+              ...p,
+              items: p.items.filter(i => i.id !== itemId),
+              activeEffects: [...(p.activeEffects || []), item]
+            };
+          }
+          return p;
+        });
+
+        await gameService.updateRoom(roomId, { players: updatedPlayers, logs: newLogs });
+        setSelectedItemId(null);
+        setIsProcessing(false);
+        return;
+      }
+
+      const updatedPlayers = latestRoom.players.map(p => {
+        if (p.uid === profile.uid) {
+          return {
+            ...p,
+            selectedChars: updatedMyChars,
+            energy: (p.energy || 0) + energyGain,
+            items: p.items.filter(i => i.id !== itemId)
+          };
+        }
+        if (p.uid === oppP.uid) {
+          return {
+            ...p,
+            selectedChars: updatedOppChars
+          };
+        }
+        return p;
+      });
+
+      await gameService.updateRoom(roomId, { players: updatedPlayers, logs: newLogs });
+      setSelectedItemId(null);
+    } catch (error) {
+      console.error('Use item error:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
   // Animation States
   const [attackingId, setAttackingId] = useState<string | null>(null);
   const [hitId, setHitId] = useState<string | null>(null);
@@ -193,6 +314,22 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       
       let newLogs = [...latestRoom.logs];
 
+      // Check for Candace's Report Letter (force_swap_main) - Move timing to BEFORE attack
+      let updatedOpponentChars = [...currentOpponent.selectedChars];
+      if (item?.itemType === 'force_swap_main') {
+        const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
+        if (aliveSubs.length > 0) {
+          const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+          updatedOpponentChars = updatedOpponentChars.map(c => ({
+            ...c,
+            isMain: c.id === randomSub.id
+          }));
+          newLogs.push(`${currentMyPlayer.teamName} 使用了 ${item.name}！對手被迫更換主戰角色為 ${randomSub.name}！`);
+          // Update targetChar to the new main
+          targetChar = randomSub;
+        }
+      }
+
       // Rule: If attacker dies before attacking (due to splash damage from opponent), skip turn
       if (attackerChar.isDead) {
         newLogs.push(`${attackerChar.name} 已在發起攻擊前陣亡，攻擊機會結束！`);
@@ -213,7 +350,22 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         return;
       }
 
-      const { damage, advantage } = calculateDamage(attackerChar, targetChar, energyToUse, useSkill, item);
+      // Check for Time Stopper (disable_enemy_items) on opponent
+      const timeStopper = currentOpponent.activeEffects?.find(i => i.itemType === 'disable_enemy_items');
+      let effectiveItem = item;
+      if (timeStopper && item) {
+        newLogs.push(`對手使用了時間停止器！本回合無法使用道具卡 ${item.name}。`);
+        effectiveItem = undefined;
+      }
+
+      const { damage, advantage, isMiss } = calculateDamage(
+        attackerChar, 
+        targetChar, 
+        energyToUse, 
+        useSkill, 
+        effectiveItem,
+        currentOpponent.activeEffects
+      );
 
       // Check energy cost
       const energyCost = energyToUse + (useSkill ? attackerChar.skillEnergyCost || 0 : 0);
@@ -237,64 +389,92 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // 3. Defender Hit & Damage Number
-      setHitId(targetChar.id);
-      const effectId = Math.random().toString();
-      setDamageEffects(prev => [...prev, {
-        id: effectId,
-        amount: damage,
-        isAdvantage: advantage,
-        x: 0, // Centered on card
-        y: -40
-      }]);
+      if (isMiss) {
+        newLogs.push(`攻擊落空了！全息影像裝置發揮作用。`);
+      } else {
+        setHitId(targetChar.id);
+        const effectId = Math.random().toString();
+        setDamageEffects(prev => [...prev, {
+          id: effectId,
+          amount: damage,
+          isAdvantage: advantage,
+          x: 0, // Centered on card
+          y: -40
+        }]);
 
-      // Cleanup animations after a delay
-      setTimeout(() => {
-        setAttackingId(null);
-        setHitId(null);
-      }, 500);
+        // Cleanup animations after a delay
+        setTimeout(() => {
+          setHitId(null);
+        }, 500);
 
-      setTimeout(() => {
-        setDamageEffects(prev => prev.filter(e => e.id !== effectId));
-      }, 1500);
+        setTimeout(() => {
+          setDamageEffects(prev => prev.filter(e => e.id !== effectId));
+        }, 1500);
+      }
 
       // --- End Animation Sequence ---
 
       newLogs.push(`${currentMyPlayer.teamId} 的 ${attackerChar.name} 發動攻擊！`);
-      if (advantage) newLogs.push(`屬性克制！額外造成 20 點傷害`);
-      if (useSkill) newLogs.push(`使用技能：${attackerChar.skillName}`);
-      if (item) newLogs.push(`使用道具：${item.name}`);
+      if (isMiss) {
+        newLogs.push(`攻擊落空！`);
+      } else {
+        if (advantage) newLogs.push(`屬性克制！額外造成 20 點傷害`);
+        if (useSkill) newLogs.push(`使用技能：${attackerChar.skillName}`);
+        if (effectiveItem) newLogs.push(`使用道具：${effectiveItem.name}`);
+      }
 
       // Apply damage to opponent
-      let updatedOpponentChars = applyDamage(currentOpponent.selectedChars, damage, targetChar.id, item, advantage);
+      if (!isMiss) {
+        updatedOpponentChars = applyDamage(
+          updatedOpponentChars, 
+          damage, 
+          targetChar.id, 
+          effectiveItem, 
+          advantage,
+          currentOpponent.activeEffects
+        );
+      }
       
-      // Item effects
+      // Item effects (Post-attack)
       let updatedMyChars = [...currentMyPlayer.selectedChars];
-      let forcedToAttackOpponent = false;
+      
+      // Consume reactive items used by defender
+      let finalOpponentActiveEffects = currentOpponent.activeEffects || [];
+      if (!isMiss) {
+        // If attack landed, check if we consume half_damage
+        if (finalOpponentActiveEffects.some(i => i.itemType === 'half_damage')) {
+          newLogs.push(`小佛的藍圖發揮作用，傷害減半！`);
+          finalOpponentActiveEffects = finalOpponentActiveEffects.filter(i => i.itemType !== 'half_damage');
+        }
+      } else {
+        // If attack missed, consume hologram
+        finalOpponentActiveEffects = finalOpponentActiveEffects.filter(i => i.itemType !== 'coin_flip_miss');
+      }
+      // Always consume time stopper if it was used
+      if (timeStopper) {
+        finalOpponentActiveEffects = finalOpponentActiveEffects.filter(i => i.itemType !== 'disable_enemy_items');
+      }
 
-      if (item) {
-        if (item.itemType === 'heal') {
-          const healAmount = item.value || 50;
-          updatedMyChars = updatedMyChars.map(c => ({
-            ...c,
-            currentHp: Math.min(c.maxHp, c.currentHp + healAmount),
-            isDead: false
-          }));
-          newLogs.push(`使用了醫療箱，全員恢復 ${healAmount} 點生命！`);
-        } else if (item.itemType === 'force_swap_main') {
-          // Force opponent to swap main
-          const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
-          if (aliveSubs.length > 0) {
-            const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
-            updatedOpponentChars = updatedOpponentChars.map(c => ({
-              ...c,
-              isMain: c.id === randomSub.id
-            }));
-            newLogs.push(`凱蒂絲的檢舉信！對手被迫更換主戰角色為 ${randomSub.name}！`);
+      if (effectiveItem) {
+        if (effectiveItem.itemType === 'heal') {
+          const healAmount = effectiveItem.value || 60;
+          // Heal selected character or main character
+          const targetId = selectedMainId || updatedMyChars.find(c => c.isMain)?.id;
+          if (targetId) {
+            let targetName = '';
+            updatedMyChars = updatedMyChars.map(c => {
+              if (c.id === targetId) {
+                targetName = c.name;
+                return {
+                  ...c,
+                  currentHp: Math.min(c.maxHp, c.currentHp + healAmount),
+                  isDead: false
+                };
+              }
+              return c;
+            });
+            newLogs.push(`使用了醫療箱，恢復了 ${targetName} ${healAmount} 點生命！`);
           }
-        } else if (item.itemType === 'coin_flip_miss') {
-          // Hologram device: Force opponent to attack next turn
-          forcedToAttackOpponent = true;
-          newLogs.push(`全息影像裝置！對手下回合被迫發動攻擊！`);
         }
       }
 
@@ -310,21 +490,21 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
       // Update energy
       let energyGain = 0;
-      if (item) {
-        if (item.itemType === 'gain_energy') {
-          energyGain = item.value || 0;
-        } else if (item.itemType === 'gain_energy_phineas' && attackerChar.faction === '飛哥家') {
-          energyGain = item.value || 0;
-        } else if (item.itemType === 'gain_energy_doof' && attackerChar.faction === '杜芬舒斯家') {
-          energyGain = item.value || 0;
-        } else if (item.itemType === 'gain_energy_fireside' && attackerChar.faction === '美眉家') {
-          energyGain = item.value || 0;
+      if (effectiveItem) {
+        if (effectiveItem.itemType === 'gain_energy') {
+          energyGain = effectiveItem.value || 0;
+        } else if (effectiveItem.itemType === 'gain_energy_phineas' && attackerChar.faction === '飛哥家') {
+          energyGain = effectiveItem.value || 0;
+        } else if (effectiveItem.itemType === 'gain_energy_doof' && attackerChar.faction === '杜芬舒斯家') {
+          energyGain = effectiveItem.value || 0;
+        } else if (effectiveItem.itemType === 'gain_energy_fireside' && attackerChar.faction === '美眉家') {
+          energyGain = effectiveItem.value || 0;
         }
         
         if (energyGain > 0) {
           newLogs.push(`獲得了 ${energyGain} 點能量！`);
-        } else if (item.itemType.startsWith('gain_energy_')) {
-          newLogs.push(`道具 ${item.name} 與當前角色陣營不符，未獲得能量。`);
+        } else if (effectiveItem.itemType.startsWith('gain_energy_')) {
+          newLogs.push(`道具 ${effectiveItem.name} 與當前角色陣營不符，未獲得能量。`);
         }
       }
 
@@ -346,7 +526,8 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           return { 
             ...p, 
             selectedChars: updatedOpponentChars,
-            forcedToAttack: !!(forcedToAttackOpponent || p.forcedToAttack)
+            activeEffects: finalOpponentActiveEffects,
+            forcedToAttack: p.forcedToAttack // Keep existing forced state
           };
         }
         return p;
@@ -610,22 +791,38 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       <div className="flex-1 flex flex-col justify-between gap-8 py-4">
         {/* Opponent Side */}
         <div className="space-y-4">
-          <div className="flex justify-center gap-4">
-            {opponent.selectedChars.filter(c => !c.isMain).map(c => (
-              <BattleCardUI 
-                key={c.id} 
-                char={c} 
-                isOpponent 
-                onClick={() => {
-                  if (!c.isDead) {
-                    setSelectedTargetId(c.id);
-                  }
-                }}
-                isSelected={selectedTargetId === c.id}
-                isHit={hitId === c.id}
-                damageEffect={damageEffects.find(e => hitId === c.id)} 
-              />
-            ))}
+          <div className="flex justify-center items-center gap-4">
+            <div className="text-right">
+              <div className="text-xs font-black text-slate-400 uppercase tracking-widest">Opponent</div>
+              <div className="text-lg font-black text-white">{opponent.teamName}</div>
+              {opponent.activeEffects && opponent.activeEffects.length > 0 && (
+                <div className="flex gap-1 mt-1 justify-end">
+                  {opponent.activeEffects.map(e => (
+                    <div key={e.id} className="bg-red-500/20 border border-red-500/50 text-[8px] font-black px-1.5 py-0.5 rounded text-red-400 animate-pulse">
+                      {e.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="h-10 w-px bg-white/10" />
+            <div className="flex gap-4">
+              {opponent.selectedChars.filter(c => !c.isMain).map(c => (
+                <BattleCardUI 
+                  key={c.id} 
+                  char={c} 
+                  isOpponent 
+                  onClick={() => {
+                    if (!c.isDead) {
+                      setSelectedTargetId(c.id);
+                    }
+                  }}
+                  isSelected={selectedTargetId === c.id}
+                  isHit={hitId === c.id}
+                  damageEffect={damageEffects.find(e => hitId === c.id)} 
+                />
+              ))}
+            </div>
           </div>
           <div className="flex justify-center">
             {opponent.selectedChars.filter(c => c.isMain).map(c => (
@@ -661,6 +858,35 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
         {/* My Side */}
         <div className="space-y-4">
+          <div className="flex justify-center items-center gap-4">
+            <div className="flex gap-4">
+              {myPlayer.selectedChars.filter(c => !c.isMain).map(c => (
+                <BattleCardUI 
+                  key={c.id} 
+                  char={c} 
+                  onClick={() => !c.isDead && !c.isResting && setSelectedMainId(c.id)}
+                  isSelected={selectedMainId === c.id}
+                  isAttacking={attackingId === c.id}
+                  isHit={hitId === c.id}
+                  isCharging={selectedMainId === c.id && energyToUse > 0}
+                />
+              ))}
+            </div>
+            <div className="h-10 w-px bg-white/10" />
+            <div className="text-left">
+              <div className="text-xs font-black text-slate-400 uppercase tracking-widest">You</div>
+              <div className="text-lg font-black text-white">{myPlayer.teamName}</div>
+              {myPlayer.activeEffects && myPlayer.activeEffects.length > 0 && (
+                <div className="flex gap-1 mt-1">
+                  {myPlayer.activeEffects.map(e => (
+                    <div key={e.id} className="bg-sky-500/20 border border-sky-500/50 text-[8px] font-black px-1.5 py-0.5 rounded text-sky-400 animate-pulse">
+                      {e.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="flex justify-center">
             {myPlayer.selectedChars.filter(c => c.isMain).map(c => (
               <BattleCardUI 
@@ -678,19 +904,6 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                 主戰位
               </div>
             )}
-          </div>
-          <div className="flex justify-center gap-4">
-            {myPlayer.selectedChars.filter(c => !c.isMain).map(c => (
-              <BattleCardUI 
-                key={c.id} 
-                char={c} 
-                onClick={() => !c.isDead && !c.isResting && setSelectedMainId(c.id)}
-                isSelected={selectedMainId === c.id}
-                isAttacking={attackingId === c.id}
-                isHit={hitId === c.id}
-                isCharging={selectedMainId === c.id && energyToUse > 0}
-              />
-            ))}
           </div>
         </div>
       </div>
@@ -853,18 +1066,39 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
               {/* Item Selection */}
               <div className="space-y-2">
-                <label className="text-sm font-bold">使用道具</label>
-                <select 
-                  value={selectedItemId || ''} 
-                  onChange={(e) => setSelectedItemId(e.target.value || null)}
-                  disabled={!isMyTurn}
-                  className="w-full bg-white/5 border-2 border-white/10 rounded-xl p-3 font-bold focus:outline-none focus:border-sky-400"
-                >
-                  <option value="" className="bg-slate-800">不使用道具</option>
-                  {myPlayer.items.map(item => (
-                    <option key={item.id} value={item.id} className="bg-slate-800">{item.name}</option>
-                  ))}
-                </select>
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-bold">使用道具</label>
+                  {opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items') && (
+                    <span className="text-[10px] font-black text-red-500 animate-pulse flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/30">
+                      <Shield className="w-3 h-3" /> 時間停止中！
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <select 
+                    value={selectedItemId || ''} 
+                    onChange={(e) => setSelectedItemId(e.target.value || null)}
+                    disabled={!isMyTurn || opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items')}
+                    className={`flex-1 bg-white/5 border-2 border-white/10 rounded-xl p-3 font-bold focus:outline-none focus:border-sky-400 ${(!isMyTurn || opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items')) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <option value="" className="bg-slate-800">不使用道具</option>
+                    {myPlayer.items.map(item => (
+                      <option key={item.id} value={item.id} className="bg-slate-800">{item.name}</option>
+                    ))}
+                  </select>
+                  {selectedItemId && (
+                    <button
+                      onClick={() => handleUseItem(selectedItemId)}
+                      disabled={isProcessing || opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items')}
+                      className={`px-4 bg-sky-500 hover:bg-sky-600 rounded-xl font-black text-xs transition-all active:scale-95 ${opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      立即使用
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold px-1">
+                  * 攻擊類道具請點擊「確認攻擊」；即時/防禦類道具可點擊「立即使用」。
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
