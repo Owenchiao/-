@@ -130,7 +130,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           return {
             ...p,
             selectedChars: updatedMyChars,
-            energy: (p.energy || 0) + energyGain,
+            energy: 999, // Infinite energy
             items: p.items.filter(i => i.id !== itemId)
           };
         }
@@ -233,6 +233,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         if (p.uid === profile.uid) {
           return {
             ...p,
+            energy: 999, // Infinite energy
             selectedChars: p.selectedChars.map(c => ({
               ...c,
               isMain: c.id === selectedMainId
@@ -367,13 +368,15 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         currentOpponent.activeEffects
       );
 
-      // Check energy cost
+      // Check energy cost - Infinite energy bypass
       const energyCost = energyToUse + (useSkill ? attackerChar.skillEnergyCost || 0 : 0);
+      /* 
       if (energyCost > currentMyPlayer.energy) {
         toast.error('能量不足');
         setIsProcessing(false);
         return;
       }
+      */
 
       // --- Start Animation Sequence ---
       
@@ -511,12 +514,12 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       const updatedPlayers = latestRoom.players.map(p => {
         if (p.uid === profile.uid) {
           const currentEnergy = p.energy || 0;
-          const finalEnergy = Math.max(0, currentEnergy - energyCost + energyGain);
+          const finalEnergy = 999; // Infinite energy
           
           return { 
             ...p, 
             selectedChars: updatedMyChars, 
-            energy: isNaN(finalEnergy) ? currentEnergy : finalEnergy,
+            energy: finalEnergy,
             items: p.items.filter(i => i.id !== selectedItemId),
             hasAttackedThisTurn: true,
             forcedToAttack: false // Reset if I was forced
@@ -650,7 +653,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
       const updatedPlayers = latestRoom.players.map(p => {
         if (p.uid === profile.uid) {
-          return { ...p, hasAttackedThisTurn: true };
+          return { ...p, hasAttackedThisTurn: true, energy: 999 };
         }
         return p;
       });
@@ -1039,17 +1042,17 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               {/* Energy Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-bold flex items-center gap-1">
-                  <Zap className="w-4 h-4 text-blue-400" /> 使用能量 (剩餘 {myPlayer.energy})
+                  <Zap className="w-4 h-4 text-blue-400" /> 使用能量 (無限能量)
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[0, 1, 2].map(val => (
+                <div className="grid grid-cols-4 gap-2">
+                  {[0, 1, 2, 3, 4, 5, 10, 99].map(val => (
                     <button
                       key={val}
                       onClick={() => setEnergyToUse(val)}
-                      disabled={!isMyTurn || myPlayer.energy < val}
+                      disabled={!isMyTurn}
                       className={`py-2 rounded-xl font-bold border-2 transition-all ${energyToUse === val ? 'bg-blue-500 border-blue-300' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                     >
-                      {val === 0 ? '不使用' : `+${val === 1 ? '20' : '60'}`}
+                      {val === 0 ? '不使用' : `+${val * 30}`}
                     </button>
                   ))}
                 </div>
@@ -1058,7 +1061,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               {/* Skill Toggle */}
               <button
                 onClick={() => setUseSkill(!useSkill)}
-                disabled={!isMyTurn || !selectedMainId || (myPlayer.selectedChars.find(c => c.id === selectedMainId)?.skillEnergyCost || 0) > (myPlayer.energy - energyToUse)}
+                disabled={!isMyTurn || !selectedMainId}
                 className={`w-full py-3 rounded-xl font-black border-2 transition-all flex items-center justify-center gap-2 ${useSkill ? 'bg-purple-500 border-purple-300' : 'bg-white/5 border-white/10'}`}
               >
                 <Zap className="w-5 h-5" /> 使用技能

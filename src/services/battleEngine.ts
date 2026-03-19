@@ -22,8 +22,9 @@ export const calculateDamage = (
   }
 
   // Energy boost
-  if (energyUsed === 1) damage += 20;
-  if (energyUsed === 2) damage += 60;
+  if (energyUsed > 0) {
+    damage += energyUsed * 30;
+  }
 
   // Skill boost (if applicable)
   if (skillUsed && attacker.skillType === 'atk_up') {
