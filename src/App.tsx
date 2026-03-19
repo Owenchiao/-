@@ -4,6 +4,7 @@ import { auth, db } from './firebase';
 import { gameService } from './services/gameService';
 import { UserProfile, Team, View } from './types';
 import { Toaster, toast } from 'react-hot-toast';
+import { NPCS } from './constants';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -198,16 +199,18 @@ export default function App() {
       const initialChars: string[] = [];
       const initialItems: string[] = [];
 
+      const isNPC = NPCS.includes(teamId);
+
       teamData = {
         id: userTeamId,
-        name: `小隊 ${teamId}`,
+        name: isNPC ? teamId : `小隊 ${teamId}`,
         inventory: {
           characters: initialChars,
           items: initialItems
         }
       };
       await gameService.updateTeam(teamData);
-      toast.success('小隊已初始化，背包目前為空');
+      toast.success(`${isNPC ? 'NPC' : '小隊'}已初始化，背包目前為空`);
     }
     setTeam(teamData);
     setView('main_menu');

@@ -5,5 +5,12 @@ export const TEAMS = [
   '5A', '5B', '6A', '6B', '7A', '7B', '8A', '8B'
 ];
 
+export const NPCS = [
+  '熊貓彼得',
+  '刺蝟赫曼',
+  '雷吉諾',
+  '恐懼閃開(扮成蘇西的布佛)'
+];
+
 export const CHARACTERS = DB_CHARACTERS;
 export const ITEMS = DB_ITEMS;
