@@ -3,7 +3,7 @@ import { BattleCharacter, ItemCard } from '../types';
 export const calculateDamage = (
   attacker: BattleCharacter,
   defender: BattleCharacter,
-  energyUsed: number,
+  atkBoost: number,
   skillUsed: boolean,
   itemUsed?: ItemCard,
   defenderItems?: ItemCard[]
@@ -22,8 +22,8 @@ export const calculateDamage = (
   }
 
   // Energy boost
-  if (energyUsed > 0) {
-    damage += energyUsed * 30;
+  if (atkBoost > 0) {
+    damage += atkBoost;
   }
 
   // Skill boost (if applicable)

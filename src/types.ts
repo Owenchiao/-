@@ -87,6 +87,11 @@ export interface BattleCharacter extends CharacterCard {
   isDead: boolean;
   isResting: boolean;
   isMain: boolean;
+  tempEffects?: {
+    type: string;
+    value?: number;
+    turns?: number;
+  }[];
 }
 
 export interface PlayerState {
@@ -103,7 +108,7 @@ export interface PlayerState {
 
 export interface Room {
   id: string;
-  status: 'waiting' | 'selecting_chars' | 'preparing' | 'battle' | 'finished';
+  status: 'waiting' | 'selecting_first_player' | 'selecting_chars' | 'preparing' | 'battle' | 'finished';
   players: PlayerState[];
   turn: string; // uid
   currentRound: number;

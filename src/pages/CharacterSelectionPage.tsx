@@ -37,7 +37,7 @@ export default function CharacterSelectionPage({ roomId, team, profile, onStartB
         gameService.updateRoom(roomId, { status: 'preparing' });
       }
       
-      if (updatedRoom.status === 'preparing' || updatedRoom.status === 'battle') {
+      if (updatedRoom.status === 'selecting_first_player' || updatedRoom.status === 'preparing' || updatedRoom.status === 'battle') {
         onStartBattle();
       }
     });

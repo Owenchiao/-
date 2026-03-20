@@ -25,12 +25,21 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
   const [room, setRoom] = useState<Room | null>(null);
   const [selectedMainId, setSelectedMainId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
-  const [energyToUse, setEnergyToUse] = useState(0);
+  const [atkBoostToUse, setAtkBoostToUse] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [useSkill, setUseSkill] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasRecordedResult, setHasRecordedResult] = useState(false);
   
+  const getEnergyCost = (boost: number) => {
+    if (boost === 20) return 1;
+    if (boost === 30) return 1.5;
+    if (boost === 60) return 2;
+    if (boost === 90) return 3;
+    if (boost === 120) return 4;
+    return 0;
+  };
+
   const handleUseItem = async (itemId: string) => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -362,14 +371,14 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       const { damage, advantage, isMiss } = calculateDamage(
         attackerChar, 
         targetChar, 
-        energyToUse, 
+        atkBoostToUse, 
         useSkill, 
         effectiveItem,
         currentOpponent.activeEffects
       );
 
       // Check energy cost - Infinite energy bypass
-      const energyCost = energyToUse + (useSkill ? attackerChar.skillEnergyCost || 0 : 0);
+      const energyCost = getEnergyCost(atkBoostToUse) + (useSkill ? attackerChar.skillEnergyCost || 0 : 0);
       /* 
       if (energyCost > currentMyPlayer.energy) {
         toast.error('能量不足');
@@ -605,7 +614,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       // Reset local selection
       setSelectedMainId(null);
       setSelectedTargetId(null);
-      setEnergyToUse(0);
+      setAtkBoostToUse(0);
       setSelectedItemId(null);
       setUseSkill(false);
     } catch (error: any) {
@@ -725,7 +734,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       await gameService.updateRoom(roomId, cleanUpdates);
 
       // Reset local selection states
-      setEnergyToUse(0);
+      setAtkBoostToUse(0);
       setUseSkill(false);
       setSelectedItemId(null);
       setSelectedTargetId(null);
@@ -871,7 +880,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                   isSelected={selectedMainId === c.id}
                   isAttacking={attackingId === c.id}
                   isHit={hitId === c.id}
-                  isCharging={selectedMainId === c.id && energyToUse > 0}
+                  isCharging={selectedMainId === c.id && atkBoostToUse > 0}
                 />
               ))}
             </div>
@@ -899,7 +908,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                 isAttacking={attackingId === c.id}
                 isHit={hitId === c.id}
                 damageEffect={damageEffects.find(e => hitId === c.id)}
-                isCharging={selectedMainId === c.id && energyToUse > 0}
+                isCharging={selectedMainId === c.id && atkBoostToUse > 0}
               />
             ))}
             {!myPlayer.selectedChars.some(c => c.isMain) && (
@@ -1042,17 +1051,24 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               {/* Energy Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-bold flex items-center gap-1">
-                  <Zap className="w-4 h-4 text-blue-400" /> 使用能量 (無限能量)
+                  <Zap className="w-4 h-4 text-blue-400" /> 消耗能量增加攻擊力
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[0, 1, 2, 3, 4, 5, 10, 99].map(val => (
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { val: 0, label: '不使用' },
+                    { val: 20, label: '1點 (+20)' },
+                    { val: 30, label: '1.5點 (+30)' },
+                    { val: 60, label: '2點 (+60)' },
+                    { val: 90, label: '3點 (+90)' },
+                    { val: 120, label: '4點 (+120)' }
+                  ].map(opt => (
                     <button
-                      key={val}
-                      onClick={() => setEnergyToUse(val)}
+                      key={opt.val}
+                      onClick={() => setAtkBoostToUse(opt.val)}
                       disabled={!isMyTurn}
-                      className={`py-2 rounded-xl font-bold border-2 transition-all ${energyToUse === val ? 'bg-blue-500 border-blue-300' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                      className={`py-2 rounded-xl font-bold border-2 transition-all text-xs ${atkBoostToUse === opt.val ? 'bg-blue-500 border-blue-300' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                     >
-                      {val === 0 ? '不使用' : `+${val * 30}`}
+                      {opt.label}
                     </button>
                   ))}
                 </div>
