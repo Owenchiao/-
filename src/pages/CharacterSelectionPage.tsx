@@ -34,7 +34,7 @@ export default function CharacterSelectionPage({ roomId, team, profile, onStartB
       // Check if both players are ready
       const allReady = updatedRoom.players.every(p => p.selectedChars.length === 3);
       if (allReady && updatedRoom.status === 'selecting_chars') {
-        gameService.updateRoom(roomId, { status: 'selecting_first_player' });
+        gameService.updateRoom(roomId, { status: 'preparing' });
       }
       
       if (updatedRoom.status === 'selecting_first_player' || updatedRoom.status === 'preparing' || updatedRoom.status === 'battle') {

@@ -349,9 +349,9 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       const allHaveMain = updatedPlayers.every(p => p.selectedChars.some(c => c.isMain));
       const updates: any = { players: updatedPlayers, logs: newLogs };
       if (allHaveMain) {
-        if (latestRoom.status === 'selecting_chars') {
+        if (latestRoom.status === 'preparing') {
           updates.status = 'selecting_first_player';
-          updates.logs = [...newLogs, '雙方角色已就緒，請房主選擇先攻方！'];
+          updates.logs = [...newLogs, '雙方主戰角色已就緒，請房主選擇先攻方！'];
         } else {
           updates.status = 'battle';
           updates.logs = [...newLogs, `--- 第 ${latestRoom.currentRound} 回合戰鬥開始 ---`];
