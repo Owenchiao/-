@@ -169,12 +169,17 @@ export const gameService = {
       const room = roomSnap.data() as Room;
 
       const firstPlayer = room.players.find(p => p.uid === firstPlayerUid);
+      const allHaveMain = room.players.every(p => p.selectedChars.some(c => c.isMain));
+      
       const updates: any = {
         firstPlayerUid,
         turn: firstPlayerUid,
-        status: 'preparing',
+        status: allHaveMain ? 'battle' : 'preparing',
         logs: [...room.logs, `房主選擇了 ${firstPlayer?.teamName} 獲得先攻！`]
       };
+      if (allHaveMain) {
+        updates.logs.push(`--- 第 ${room.currentRound} 回合戰鬥開始 ---`);
+      }
       await updateDoc(roomRef, updates);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomId}/setFirstPlayer`);

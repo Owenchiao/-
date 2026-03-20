@@ -11,6 +11,15 @@ export const calculateDamage = (
   let damage = attacker.atk;
   let isMiss = false;
 
+  // Apply tempEffects (atk_up)
+  if (attacker.tempEffects) {
+    attacker.tempEffects.forEach(effect => {
+      if (effect.type === 'atk_up') {
+        damage += effect.value || 0;
+      }
+    });
+  }
+
   const coinFlips: boolean[] = [];
 
   // 1. Check for Hologram Device (coin_flip_miss) on defender
@@ -24,14 +33,10 @@ export const calculateDamage = (
     }
   }
 
-  // Energy boost: 1 energy -> +20, 2 energy -> +60
-  if (energyUsed === 1) {
-    damage += 20;
-  } else if (energyUsed === 2) {
-    damage += 60;
-  } else if (energyUsed > 2) {
-    damage += energyUsed * 30;
-  }
+  // Energy boost: 1 energy -> +30, 2 energy -> +60, 3 energy -> +90
+  damage += energyUsed * 30;
+
+  let ignoreDefense = false;
 
   // Skill boost (if applicable)
   if (skillUsed) {
@@ -50,13 +55,15 @@ export const calculateDamage = (
       coinFlips.push(coinFlip);
       if (coinFlip) {
         damage += 5;
-        // Ignore defense logic would be handled by not applying reduction, 
-        // but current engine doesn't have much reduction yet except for items.
+        ignoreDefense = true;
       }
     } else if (attacker.skillType === 'atk_if_low_hp') {
       if (attacker.currentHp <= 50) {
         damage += 30;
       }
+    } else if (attacker.skillType === 'execute_if_target_below_20') {
+      // 本次攻擊若將敵方生命值降至20以下，則直接判定敵方陣亡
+      // This will be handled in applyDamage
     }
   }
 
@@ -84,7 +91,7 @@ export const calculateDamage = (
     }
   }
 
-  return { damage, advantage, isMiss: false, coinFlips };
+  return { damage, advantage, isMiss: false, coinFlips, ignoreDefense };
 };
 
 export const applyDamage = (
@@ -93,7 +100,9 @@ export const applyDamage = (
   targetId?: string | null,
   itemUsed?: ItemCard,
   hasAdvantage: boolean = false,
-  defenderItems?: ItemCard[]
+  defenderItems?: ItemCard[],
+  attackerSkillType?: string,
+  ignoreDefense?: boolean
 ) => {
   // Determine who takes 100% damage
   let primaryTargetId: string | null = null;
@@ -114,7 +123,7 @@ export const applyDamage = (
 
   // 3. Ferb's Blueprint (half_damage) on defender
   const halfDamageItem = defenderItems?.find(i => i.itemType === 'half_damage');
-  const damageMultiplier = halfDamageItem ? 0.5 : 1;
+  const damageMultiplier = (halfDamageItem && !ignoreDefense) ? 0.5 : 1;
 
   // Rule: Splash damage (20%) is NOT affected by type advantage (+20)
   const baseDamageForSplash = hasAdvantage ? Math.max(0, mainDamage - 20) : mainDamage;
@@ -127,12 +136,29 @@ export const applyDamage = (
     if (char.id === primaryTargetId) {
       // Primary target takes 100% damage (including advantage)
       damageTaken = Math.floor(mainDamage * damageMultiplier);
+      
+      // Apply tempEffects (guard, damage_taken_up)
+      if (char.tempEffects) {
+        char.tempEffects.forEach(effect => {
+          if (effect.type === 'guard') {
+            damageTaken = Math.max(0, damageTaken - (effect.value || 0));
+          } else if (effect.type === 'damage_taken_up') {
+            damageTaken += (effect.value || 0);
+          }
+        });
+      }
     } else {
       // Others take 20% splash damage (based on base damage)
       damageTaken = Math.floor(baseDamageForSplash * 0.2 * damageMultiplier);
     }
 
-    const newHp = Math.max(0, char.currentHp - damageTaken);
+    let newHp = Math.max(0, char.currentHp - damageTaken);
+
+    // Execute skill: Vader Doof
+    if (attackerSkillType === 'execute_if_target_below_20' && char.id === primaryTargetId && newHp > 0 && newHp <= 20) {
+      newHp = 0;
+    }
+
     return {
       ...char,
       currentHp: newHp,

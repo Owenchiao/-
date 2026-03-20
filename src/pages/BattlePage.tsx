@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Team, UserProfile, Room, BattleCharacter, ItemCard, PlayerState } from '../types';
 import { gameService } from '../services/gameService';
 import { calculateDamage, applyDamage } from '../services/battleEngine';
-import { Sword, Shield, Heart, Zap, History, Trophy, Star, Check } from 'lucide-react';
+import { Sword, Shield, Heart, Zap, History, Trophy, Star, Check, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Props {
@@ -89,6 +89,17 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
             isMain: c.id === randomSub.id
           }));
           newLogs.push(`${myP.teamName} 使用了 ${item.name}！對手被迫更換主戰角色為 ${randomSub.name}！`);
+          
+          // Trigger on_enter skills for opponent's new main
+          const logs: string[] = [];
+          const { updatedPlayer: finalOppP, updatedOpponent: finalMyP } = triggerOnEnterSkills(
+            { ...oppP, selectedChars: updatedOppChars },
+            { ...myP, selectedChars: updatedMyChars },
+            randomSub.id,
+            logs
+          );
+          updatedOppChars = finalOppP.selectedChars;
+          newLogs.push(...logs);
         }
       } else if (item.itemType === 'swap_main_sub') {
         const main = updatedMyChars.find(c => c.isMain);
@@ -101,6 +112,17 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
             return c;
           });
           newLogs.push(`${myP.teamName} 使用了 ${item.name}，更換主戰角色為 ${randomSub.name}！`);
+
+          // Trigger on_enter skills for my new main
+          const logs: string[] = [];
+          const { updatedPlayer: finalMyP, updatedOpponent: finalOppP } = triggerOnEnterSkills(
+            { ...myP, selectedChars: updatedMyChars },
+            { ...oppP, selectedChars: updatedOppChars },
+            randomSub.id,
+            logs
+          );
+          updatedMyChars = finalMyP.selectedChars;
+          newLogs.push(...logs);
         }
       } else if (item.itemType === 'gain_energy') {
         energyGain = item.value || 0;
@@ -204,6 +226,79 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
   const opponent = room.players.find(p => p.uid !== profile.uid)!;
   const isMyTurn = room.turn === profile.uid;
 
+  const triggerOnEnterSkills = (
+    player: PlayerState, 
+    opponent: PlayerState, 
+    newMainId: string,
+    logs: string[]
+  ): { updatedPlayer: PlayerState, updatedOpponent: PlayerState } => {
+    const char = player.selectedChars.find(c => c.id === newMainId);
+    if (!char) return { updatedPlayer: player, updatedOpponent: opponent };
+
+    let updatedPlayer = { ...player };
+    let updatedOpponent = { ...opponent };
+
+    if (char.skillTrigger === 'on_enter') {
+      logs.push(`登場技能觸發：${char.name} 的 ${char.skillName || '特殊技能'}`);
+      
+      if (char.skillType === 'gain_energy') {
+        updatedPlayer.energy += 2;
+        logs.push(`技能效果：直接獲得 2 個能量點！`);
+      } else if (char.skillType === 'self_guard_first_turn') {
+        updatedPlayer.selectedChars = updatedPlayer.selectedChars.map(c => 
+          c.id === char.id ? { ...c, tempEffects: [...(c.tempEffects || []), { type: 'guard', value: 20, turns: 1 }] } : c
+        );
+        logs.push(`技能效果：本回合獲得 20 點護盾！`);
+      } else if (char.skillType === 'disable_enemy_skill') {
+        const disableEffect: any = { 
+          id: 'disable_skill', 
+          name: '技能封印', 
+          itemType: 'disable_enemy_items', 
+          value: 1,
+          type: 'item',
+          description: '下一回合無法使用技能',
+          usageTiming: 'passive',
+          needsManualReview: false
+        };
+        updatedOpponent.activeEffects = [...(updatedOpponent.activeEffects || []), disableEffect];
+        logs.push(`技能效果：使對手下一回合無法使用特殊技能！`);
+      } else if (char.skillType === 'atk_up_fixed') {
+        const hasInjured = updatedPlayer.selectedChars.some(c => c.currentHp < c.maxHp);
+        if (hasInjured) {
+          updatedPlayer.selectedChars = updatedPlayer.selectedChars.map(c => 
+            c.id === char.id ? { ...c, tempEffects: [...(c.tempEffects || []), { type: 'atk_up', value: 30, turns: 1 }] } : c
+          );
+          logs.push(`技能效果：己方有受傷角色，攻擊力提升 30 點！`);
+        }
+      } else if (char.skillType === 'force_swap_main') {
+        const coin = Math.random() > 0.5;
+        logs.push(`擲硬幣結果：${coin ? '正面' : '反面'}`);
+        if (coin) {
+          const aliveSubs = updatedOpponent.selectedChars.filter(c => !c.isMain && !c.isDead);
+          if (aliveSubs.length > 0) {
+            const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+            updatedOpponent.selectedChars = updatedOpponent.selectedChars.map(c => ({
+              ...c,
+              isMain: c.id === randomSub.id
+            }));
+            logs.push(`技能效果：強制對手更換主戰角色為 ${randomSub.name}！`);
+            
+            updatedPlayer.selectedChars = updatedPlayer.selectedChars.map(c => 
+              c.id === char.id ? { ...c, tempEffects: [...(c.tempEffects || []), { type: 'damage_taken_up', value: 15, turns: 1 }] } : c
+            );
+            logs.push(`技能副作用：${char.name} 本回合受到的傷害增加 15 點。`);
+          } else {
+            logs.push(`技能效果：對手沒有備戰角色，交換失敗。`);
+          }
+        } else {
+          logs.push(`技能效果：擲硬幣失敗，未能發動交換。`);
+        }
+      }
+    }
+
+    return { updatedPlayer, updatedOpponent };
+  };
+
   const handleConfirmMain = async () => {
     if (!selectedMainId) {
       toast.error('請選擇一位主戰角色');
@@ -229,25 +324,38 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         return;
       }
 
+      const newLogs = [...latestRoom.logs];
+      let updatedPlayer = {
+        ...player,
+        energy: 999, // Infinite energy
+        selectedChars: player.selectedChars.map(c => ({
+          ...c,
+          isMain: c.id === selectedMainId
+        }))
+      };
+      let updatedOpponent = { ...opponent };
+
+      // Trigger on_enter skills
+      const result = triggerOnEnterSkills(updatedPlayer, updatedOpponent, selectedMainId, newLogs);
+      updatedPlayer = result.updatedPlayer;
+      updatedOpponent = result.updatedOpponent;
+
       const updatedPlayers = latestRoom.players.map(p => {
-        if (p.uid === profile.uid) {
-          return {
-            ...p,
-            energy: 999, // Infinite energy
-            selectedChars: p.selectedChars.map(c => ({
-              ...c,
-              isMain: c.id === selectedMainId
-            }))
-          };
-        }
+        if (p.uid === profile.uid) return updatedPlayer;
+        if (p.uid === opponent.uid) return updatedOpponent;
         return p;
       });
 
       const allHaveMain = updatedPlayers.every(p => p.selectedChars.some(c => c.isMain));
-      const updates: any = { players: updatedPlayers };
+      const updates: any = { players: updatedPlayers, logs: newLogs };
       if (allHaveMain) {
-        updates.status = 'battle';
-        updates.logs = [...latestRoom.logs, `--- 第 ${latestRoom.currentRound} 回合戰鬥開始 ---`];
+        if (latestRoom.status === 'selecting_chars') {
+          updates.status = 'selecting_first_player';
+          updates.logs = [...newLogs, '雙方角色已就緒，請房主選擇先攻方！'];
+        } else {
+          updates.status = 'battle';
+          updates.logs = [...newLogs, `--- 第 ${latestRoom.currentRound} 回合戰鬥開始 ---`];
+        }
       }
 
       await gameService.updateRoom(roomId, updates);
@@ -359,7 +467,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         effectiveItem = undefined;
       }
 
-      const { damage, advantage, isMiss, coinFlips } = calculateDamage(
+      const { damage, advantage, isMiss, coinFlips, ignoreDefense } = calculateDamage(
         attackerChar, 
         targetChar, 
         energyToUse, 
@@ -478,7 +586,9 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           targetChar.id, 
           effectiveItem, 
           advantage,
-          currentOpponent.activeEffects
+          currentOpponent.activeEffects,
+          useSkill ? attackerChar.skillType : undefined,
+          ignoreDefense
         );
       }
       
@@ -616,6 +726,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               p.selectedChars.forEach(c => {
                 c.isResting = false; // Clear resting state for next round
                 c.isMain = false; // Reset main for next round selection
+                c.tempEffects = []; // Clear temp effects for next round
               });
             });
             newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
@@ -1038,23 +1149,27 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           ) : room.status === 'selecting_first_player' ? (
             <div className="text-center space-y-6 py-8 bg-sky-500/10 rounded-3xl border-2 border-sky-500/30 p-6">
               <div className="relative">
-                <Sword className="w-16 h-16 text-sky-500 mx-auto animate-pulse" />
+                <Trophy className="w-16 h-16 text-yellow-500 mx-auto animate-bounce" />
+                <div className="absolute -top-2 -right-2 bg-orange-500 text-[10px] font-black px-2 py-0.5 rounded-full">
+                  DECIDE
+                </div>
               </div>
               <div className="space-y-2">
-                <h4 className="text-2xl font-black text-sky-400">選擇先攻方</h4>
+                <h4 className="text-2xl font-black text-sky-400">決定先攻順序</h4>
                 <p className="text-slate-300 font-bold">
-                  {room.players[0].uid === profile.uid ? '你是房主，請選擇誰先開始戰鬥' : '等待房主選擇先攻方...'}
+                  {room.players[0].uid === profile.uid ? '你是房主，請選擇誰先發動攻擊' : '等待房主選擇先攻順序...'}
                 </p>
               </div>
-
+              
               {room.players[0].uid === profile.uid && (
                 <div className="grid grid-cols-2 gap-4">
                   {room.players.map(p => (
                     <button
                       key={p.uid}
                       onClick={() => gameService.setFirstPlayer(roomId, p.uid)}
-                      className="py-4 bg-sky-500 hover:bg-sky-600 rounded-2xl font-black text-lg shadow-lg transition-all transform active:scale-95"
+                      className="py-4 bg-sky-500 hover:bg-sky-600 rounded-2xl font-black text-lg shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2"
                     >
+                      <Sword className="w-5 h-5" />
                       {p.uid === profile.uid ? '我方先攻' : '對手先攻'}
                     </button>
                   ))}
@@ -1115,14 +1230,19 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                   <Zap className="w-4 h-4 text-blue-400" /> 使用能量 (無限能量)
                 </label>
                 <div className="grid grid-cols-4 gap-2">
-                  {[0, 1, 2, 3, 4, 5, 10, 99].map(val => (
+                  {[0, 1, 2, 3].map(val => (
                     <button
                       key={val}
                       onClick={() => setEnergyToUse(val)}
                       disabled={!isMyTurn}
-                      className={`py-2 rounded-xl font-bold border-2 transition-all ${energyToUse === val ? 'bg-blue-500 border-blue-300' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                      className={`py-3 rounded-xl font-black border-2 transition-all flex flex-col items-center justify-center ${
+                        energyToUse === val 
+                          ? 'bg-blue-500 border-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.5)]' 
+                          : 'bg-white/5 border-white/10 hover:bg-white/10'
+                      }`}
                     >
-                      {val === 0 ? '不使用' : val === 1 ? '+20' : val === 2 ? '+60' : `+${val * 30}`}
+                      <span className="text-xs opacity-70">{val === 0 ? '基本' : `消耗 ${val} 能量`}</span>
+                      <span className="text-lg">{val === 0 ? '無加成' : `+${val * 30} ATK`}</span>
                     </button>
                   ))}
                 </div>
@@ -1297,9 +1417,22 @@ function BattleCardUI({
         )}
       </AnimatePresence>
 
-      <div className="p-2 h-full flex flex-col justify-between">
+      <div className="p-2 h-full flex flex-col justify-between relative">
         <div className="text-[10px] font-black uppercase tracking-tighter truncate">{char.name}</div>
         
+        {/* Temp Effects Icons */}
+        {char.tempEffects && char.tempEffects.length > 0 && (
+          <div className="absolute top-6 right-1 flex flex-col gap-1 z-10">
+            {char.tempEffects.map((effect, idx) => (
+              <div key={idx} className={`p-1 rounded-full shadow-lg border border-white/20 animate-bounce ${effect.type === 'guard' ? 'bg-blue-500' : effect.type === 'atk_up' ? 'bg-orange-500' : 'bg-red-500'}`}>
+                {effect.type === 'guard' && <Shield className="w-3 h-3 text-white" />}
+                {effect.type === 'atk_up' && <Zap className="w-3 h-3 text-white" />}
+                {effect.type === 'damage_taken_up' && <ShieldAlert className="w-3 h-3 text-white" />}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-1">
           <div className="flex justify-between text-[8px] font-bold">
             <span>HP</span>

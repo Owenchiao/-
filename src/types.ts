@@ -87,6 +87,11 @@ export interface BattleCharacter extends CharacterCard {
   isDead: boolean;
   isResting: boolean;
   isMain: boolean;
+  tempEffects?: {
+    type: string;
+    value?: number;
+    turns?: number;
+  }[];
 }
 
 export interface PlayerState {
