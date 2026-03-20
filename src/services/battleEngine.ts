@@ -11,24 +11,53 @@ export const calculateDamage = (
   let damage = attacker.atk;
   let isMiss = false;
 
+  const coinFlips: boolean[] = [];
+
   // 1. Check for Hologram Device (coin_flip_miss) on defender
   const hologram = defenderItems?.find(i => i.itemType === 'coin_flip_miss');
   if (hologram) {
     const coinFlip = Math.random() > 0.5;
+    coinFlips.push(coinFlip);
     if (coinFlip) {
       isMiss = true;
-      return { damage: 0, advantage: false, isMiss: true };
+      return { damage: 0, advantage: false, isMiss: true, coinFlips };
     }
   }
 
-  // Energy boost
-  if (energyUsed > 0) {
+  // Energy boost: 1 energy -> +20, 2 energy -> +60
+  if (energyUsed === 1) {
+    damage += 20;
+  } else if (energyUsed === 2) {
+    damage += 60;
+  } else if (energyUsed > 2) {
     damage += energyUsed * 30;
   }
 
   // Skill boost (if applicable)
-  if (skillUsed && attacker.skillType === 'atk_up') {
-    damage += 30; // Default skill boost for now
+  if (skillUsed) {
+    if (attacker.skillType === 'atk_up') {
+      damage += 30;
+    } else if (attacker.skillType === 'coin_damage') {
+      // 擲硬幣2次，增加出現正面次數*30的傷害
+      const c1 = Math.random() > 0.5;
+      const c2 = Math.random() > 0.5;
+      coinFlips.push(c1, c2);
+      const heads = [c1, c2].filter(c => c).length;
+      damage += heads * 30;
+    } else if (attacker.skillType === 'ignore_defense_coin') {
+      // 擲硬幣正面則可無視直接造成全額傷害並額外增加5點威力
+      const coinFlip = Math.random() > 0.5;
+      coinFlips.push(coinFlip);
+      if (coinFlip) {
+        damage += 5;
+        // Ignore defense logic would be handled by not applying reduction, 
+        // but current engine doesn't have much reduction yet except for items.
+      }
+    } else if (attacker.skillType === 'atk_if_low_hp') {
+      if (attacker.currentHp <= 50) {
+        damage += 30;
+      }
+    }
   }
 
   // Item boost
@@ -55,7 +84,7 @@ export const calculateDamage = (
     }
   }
 
-  return { damage, advantage, isMiss: false };
+  return { damage, advantage, isMiss: false, coinFlips };
 };
 
 export const applyDamage = (

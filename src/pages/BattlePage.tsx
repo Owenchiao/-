@@ -359,7 +359,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         effectiveItem = undefined;
       }
 
-      const { damage, advantage, isMiss } = calculateDamage(
+      const { damage, advantage, isMiss, coinFlips } = calculateDamage(
         attackerChar, 
         targetChar, 
         energyToUse, 
@@ -380,6 +380,34 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
       // --- Start Animation Sequence ---
       
+      // Coin flip skills (energy/gold gain)
+      let skillEnergyGain = 0;
+      if (useSkill) {
+        if (attackerChar.skillType === 'gain_energy_on_coin') {
+          const coin = Math.random() > 0.5;
+          if (coin) {
+            skillEnergyGain += 1;
+            newLogs.push(`擲硬幣結果：正面！獲得 1 點能量。`);
+          } else {
+            newLogs.push(`擲硬幣結果：反面。未能獲得能量。`);
+          }
+        } else if (attackerChar.skillType === 'coin_energy') {
+          const coins = [Math.random() > 0.5, Math.random() > 0.5];
+          const heads = coins.filter(c => c).length;
+          if (heads === 2) {
+            skillEnergyGain += 1;
+            newLogs.push(`擲硬幣結果：2個正面！獲得 1 點能量。`);
+          } else {
+            newLogs.push(`擲硬幣結果：${heads}個正面。未能獲得能量。`);
+          }
+        } else if (attackerChar.skillType === 'gain_gold_on_coin') {
+          const coins = [Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5];
+          const heads = coins.filter(c => c).length;
+          const goldGain = heads * 5;
+          newLogs.push(`擲硬幣結果：${heads}個正面！獲得 ${goldGain} 枚金幣。`);
+        }
+      }
+
       // 1. Skill Cut-in
       if (useSkill) {
         setSkillCutIn(attackerChar);
@@ -422,8 +450,24 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         newLogs.push(`攻擊落空！`);
       } else {
         if (advantage) newLogs.push(`屬性克制！額外造成 20 點傷害`);
-        if (useSkill) newLogs.push(`使用技能：${attackerChar.skillName}`);
+        if (useSkill) newLogs.push(`使用技能：${attackerChar.skillName || '特殊技能'}`);
         if (effectiveItem) newLogs.push(`使用道具：${effectiveItem.name}`);
+        
+        // Log coin flips from damage calculation (skills/items)
+        if (coinFlips && coinFlips.length > 0) {
+          const heads = coinFlips.filter(c => c).length;
+          newLogs.push(`擲硬幣結果：${coinFlips.map(c => c ? '正面' : '反面').join(', ')} (${heads} 個正面)`);
+          
+          if (useSkill && attackerChar.skillType === 'coin_damage') {
+            newLogs.push(`技能效果：額外增加 ${heads * 30} 點傷害`);
+          } else if (useSkill && attackerChar.skillType === 'ignore_defense_coin') {
+            if (heads > 0) {
+              newLogs.push(`技能效果：無視防禦並額外增加 5 點威力`);
+            } else {
+              newLogs.push(`技能效果：擲硬幣失敗，未能發動額外效果`);
+            }
+          }
+        }
       }
 
       // Apply damage to opponent
@@ -991,7 +1035,33 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               <h4 className="text-2xl font-black">對戰結束</h4>
               <p className="text-slate-400 font-bold">請查看結算畫面</p>
             </div>
-          ) : room.status === 'preparing' ? (
+          ) : room.status === 'selecting_first_player' ? (
+            <div className="text-center space-y-6 py-8 bg-sky-500/10 rounded-3xl border-2 border-sky-500/30 p-6">
+              <div className="relative">
+                <Sword className="w-16 h-16 text-sky-500 mx-auto animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-2xl font-black text-sky-400">選擇先攻方</h4>
+                <p className="text-slate-300 font-bold">
+                  {room.players[0].uid === profile.uid ? '你是房主，請選擇誰先開始戰鬥' : '等待房主選擇先攻方...'}
+                </p>
+              </div>
+
+              {room.players[0].uid === profile.uid && (
+                <div className="grid grid-cols-2 gap-4">
+                  {room.players.map(p => (
+                    <button
+                      key={p.uid}
+                      onClick={() => gameService.setFirstPlayer(roomId, p.uid)}
+                      className="py-4 bg-sky-500 hover:bg-sky-600 rounded-2xl font-black text-lg shadow-lg transition-all transform active:scale-95"
+                    >
+                      {p.uid === profile.uid ? '我方先攻' : '對手先攻'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (room.status === 'preparing' || room.status === 'selecting_chars') ? (
             <div className="text-center space-y-6 py-8 bg-sky-500/10 rounded-3xl border-2 border-sky-500/30 p-6">
               <div className="relative">
                 <Shield className="w-16 h-16 text-sky-500 mx-auto animate-pulse" />
@@ -1052,7 +1122,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                       disabled={!isMyTurn}
                       className={`py-2 rounded-xl font-bold border-2 transition-all ${energyToUse === val ? 'bg-blue-500 border-blue-300' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                     >
-                      {val === 0 ? '不使用' : `+${val * 30}`}
+                      {val === 0 ? '不使用' : val === 1 ? '+20' : val === 2 ? '+60' : `+${val * 30}`}
                     </button>
                   ))}
                 </div>

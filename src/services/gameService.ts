@@ -151,20 +151,33 @@ export const gameService = {
       
       if (updatedPlayers.length === 2) {
         updates.status = 'selecting_chars';
-        updates.logs = [...room.logs, `小隊 ${player.teamId} 加入了房間`];
-        
-        // Coin Flip to determine first player for the whole battle
-        const coinFlip = Math.random() > 0.5;
-        const firstPlayerUid = coinFlip ? room.players[0].uid : player.uid;
-        updates.firstPlayerUid = firstPlayerUid;
-        updates.turn = firstPlayerUid;
-        updates.logs.push(`拋擲硬幣結果：${firstPlayerUid === room.players[0].uid ? room.players[0].teamName : player.teamName} 獲得先攻！`);
+        updates.logs = [...room.logs, `小隊 ${player.teamName} 加入了房間。請雙方選擇出戰角色！`];
       }
       updates.lastActivity = serverTimestamp();
 
       await updateDoc(roomRef, updates);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomId}`);
+    }
+  },
+
+  async setFirstPlayer(roomId: string, firstPlayerUid: string) {
+    try {
+      const roomRef = doc(db, 'rooms', roomId);
+      const roomSnap = await getDoc(roomRef);
+      if (!roomSnap.exists()) return;
+      const room = roomSnap.data() as Room;
+
+      const firstPlayer = room.players.find(p => p.uid === firstPlayerUid);
+      const updates: any = {
+        firstPlayerUid,
+        turn: firstPlayerUid,
+        status: 'preparing',
+        logs: [...room.logs, `房主選擇了 ${firstPlayer?.teamName} 獲得先攻！`]
+      };
+      await updateDoc(roomRef, updates);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomId}/setFirstPlayer`);
     }
   },
 
