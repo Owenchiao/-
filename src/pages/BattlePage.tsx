@@ -310,10 +310,11 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       if (!latestRoom) return;
 
       const player = latestRoom.players.find(p => p.uid === profile.uid);
+      const oppP = latestRoom.players.find(p => p.uid !== profile.uid);
       const selectedChar = player?.selectedChars.find(c => c.id === selectedMainId);
       
-      if (!selectedChar) {
-        toast.error('請先選擇一位角色');
+      if (!player || !oppP || !selectedChar) {
+        toast.error('資料讀取失敗，請重試');
         setIsProcessing(false);
         return;
       }
@@ -327,13 +328,12 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       const newLogs = [...latestRoom.logs];
       let updatedPlayer = {
         ...player,
-        energy: 999, // Infinite energy
         selectedChars: player.selectedChars.map(c => ({
           ...c,
           isMain: c.id === selectedMainId
         }))
       };
-      let updatedOpponent = { ...opponent };
+      let updatedOpponent = { ...oppP };
 
       // Trigger on_enter skills
       const result = triggerOnEnterSkills(updatedPlayer, updatedOpponent, selectedMainId, newLogs);
@@ -342,7 +342,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
       const updatedPlayers = latestRoom.players.map(p => {
         if (p.uid === profile.uid) return updatedPlayer;
-        if (p.uid === opponent.uid) return updatedOpponent;
+        if (p.uid === oppP.uid) return updatedOpponent;
         return p;
       });
 
@@ -352,9 +352,15 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         if (latestRoom.status === 'preparing') {
           updates.status = 'selecting_first_player';
           updates.logs = [...newLogs, '雙方主戰角色已就緒，請房主選擇先攻方！'];
+        } else if (latestRoom.status === 'selecting_first_player') {
+          // Keep it as selecting_first_player, don't overwrite
+          updates.status = 'selecting_first_player';
         } else {
           updates.status = 'battle';
-          updates.logs = [...newLogs, `--- 第 ${latestRoom.currentRound} 回合戰鬥開始 ---`];
+          // Only log start if we were not already in battle
+          if (latestRoom.status !== 'battle') {
+            updates.logs = [...newLogs, `--- 第 ${latestRoom.currentRound} 回合戰鬥開始 ---`];
+          }
         }
       }
 
@@ -1173,10 +1179,19 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                       {p.uid === profile.uid ? '我方先攻' : '對手先攻'}
                     </button>
                   ))}
+                  <button
+                    onClick={() => {
+                      const randomPlayer = room.players[Math.floor(Math.random() * room.players.length)];
+                      gameService.setFirstPlayer(roomId, randomPlayer.uid);
+                    }}
+                    className="col-span-2 py-4 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Zap className="w-5 h-5" /> 隨機決定先攻
+                  </button>
                 </div>
               )}
             </div>
-          ) : (room.status === 'preparing' || room.status === 'selecting_chars') ? (
+          ) : (room.status === 'preparing' || room.status === 'selecting_chars' || (room.status === 'battle' && !myPlayer.selectedChars.some(c => c.isMain))) ? (
             <div className="text-center space-y-6 py-8 bg-sky-500/10 rounded-3xl border-2 border-sky-500/30 p-6">
               <div className="relative">
                 <Shield className="w-16 h-16 text-sky-500 mx-auto animate-pulse" />
@@ -1185,12 +1200,16 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                   transition={{ repeat: Infinity, duration: 2 }}
                   className="absolute top-0 right-1/2 translate-x-8 bg-orange-500 text-[10px] font-black px-2 py-0.5 rounded-full"
                 >
-                  PHASE 1
+                  {room.status === 'battle' ? 'RECOVERY' : 'PHASE 1'}
                 </motion.div>
               </div>
               <div className="space-y-2">
-                <h4 className="text-2xl font-black text-sky-400">準備階段</h4>
-                <p className="text-slate-300 font-bold">請從下方存活角色中挑選一位指派為主戰位</p>
+                <h4 className="text-2xl font-black text-sky-400">
+                  {room.status === 'battle' ? '主戰角色已陣亡' : '準備階段'}
+                </h4>
+                <p className="text-slate-300 font-bold">
+                  {room.status === 'battle' ? '請指派一位備戰角色上場！' : '請從下方存活角色中挑選一位指派為主戰位'}
+                </p>
               </div>
               
               <div className="flex justify-center gap-4 py-2">
