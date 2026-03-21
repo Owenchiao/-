@@ -35,7 +35,7 @@ export const ITEM_CARDS: ItemCard[] = [
     id: "item_ferb_blueprint",
     type: "item",
     name: "小佛的藍圖",
-    description: "可在對方發起攻擊時使用，本回合受到的所有傷害（含主位與備戰區）減半",
+    description: "可在對方發起攻擊時使用，本回合我的角色受到的傷害減半（含主位與備戰區）",
     usageTiming: "enemy_attack_phase",
     itemType: "half_damage",
     value: 0.5,
@@ -46,7 +46,7 @@ export const ITEM_CARDS: ItemCard[] = [
     type: "item",
     name: "美眉家族的醫藥箱",
     description: "回復一名角色60點生命值",
-    usageTiming: "instant",
+    usageTiming: "any_turn",
     itemType: "heal",
     value: 60,
     needsManualReview: false
@@ -86,7 +86,7 @@ export const ITEM_CARDS: ItemCard[] = [
     type: "item",
     name: "能量電池",
     description: "使任一角色立即獲得2點能量點",
-    usageTiming: "instant",
+    usageTiming: "any_turn",
     itemType: "gain_energy",
     value: 2,
     needsManualReview: false
@@ -106,7 +106,7 @@ export const ITEM_CARDS: ItemCard[] = [
     type: "item",
     name: "通用能量點",
     description: "可以為任一角色灌注能量點",
-    usageTiming: "instant",
+    usageTiming: "any_turn",
     itemType: "gain_energy",
     value: 1,
     needsManualReview: false
@@ -116,7 +116,7 @@ export const ITEM_CARDS: ItemCard[] = [
     type: "item",
     name: "凱蒂斯家能量點",
     description: "可以為凱蒂斯家的角色灌注能量點",
-    usageTiming: "instant",
+    usageTiming: "any_turn",
     itemType: "gain_energy_phineas",
     value: 1,
     needsManualReview: false
@@ -126,7 +126,7 @@ export const ITEM_CARDS: ItemCard[] = [
     type: "item",
     name: "杜芬舒斯家能量點",
     description: "可以為杜芬舒斯家的角色灌注能量點",
-    usageTiming: "instant",
+    usageTiming: "any_turn",
     itemType: "gain_energy_doof",
     value: 1,
     needsManualReview: false
@@ -136,9 +136,19 @@ export const ITEM_CARDS: ItemCard[] = [
     type: "item",
     name: "美眉家能量點",
     description: "可以為美眉家的角色灌注能量點",
-    usageTiming: "instant",
+    usageTiming: "any_turn",
     itemType: "gain_energy_fireside",
     value: 1,
+    needsManualReview: false
+  },
+  {
+    id: "item_splash_potion",
+    type: "item",
+    name: "濺射藥水",
+    description: "本回合攻擊的濺射傷害提升至30%",
+    usageTiming: "attack_phase",
+    itemType: "splash_up",
+    value: 0.3,
     needsManualReview: false
   }
 ];

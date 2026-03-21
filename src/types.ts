@@ -15,6 +15,47 @@ export type SkillTrigger =
   | 'after_battle' 
   | 'unknown';
 
+export type SkillType = 
+  | 'none'
+  | 'atk_up'
+  | 'atk_up_fixed'
+  | 'atk_if_low_hp'
+  | 'atk_mult'
+  | 'heal_self_fixed'
+  | 'heal_sub_fixed'
+  | 'battle_start_heal_sub'
+  | 'gain_energy_on_coin'
+  | 'gain_energy'
+  | 'coin_energy'
+  | 'coin_damage'
+  | 'coin_gold'
+  | 'deal_percent_enemy_atk'
+  | 'deal_percent_enemy_hp'
+  | 'splash_30_percent'
+  | 'hp_up_fixed'
+  | 'self_guard_first_turn'
+  | 'hit_lowest_sub'
+  | 'disable_enemy_skill'
+  | 'swap_with_sub_and_heal'
+  | 'counter_damage_and_buff_next_atk'
+  | 'bonus_gold_on_kill'
+  | 'execute_if_target_below_20'
+  | 'ignore_defense_coin'
+  | 'force_swap_main'
+  | 'self_damage_reduction'
+  | 'protect_ally_in_sub'
+  | 'random_steal_item'
+  | 'item_effect_double'
+  | 'choose_sub_damage'
+  | 'redirect_attack_to_sub'
+  | 'end_enemy_turn_and_alt_win'
+  | 'double_attack_half_second'
+  | 'reflect_direct_damage'
+  | 'attach_energy_to_sub'
+  | 'gain_gold_on_coin'
+  | 'swap_main_sub'
+  | 'unknown';
+
 export interface CharacterCard {
   id: string;
   type: 'character';
@@ -25,9 +66,9 @@ export interface CharacterCard {
   hp: number | null;
   skillName: string | null;
   skillDescription: string;
-  skillEnergyCost: 0 | 1 | 2 | null;
+  skillEnergyCost: number | null;
   skillTrigger: SkillTrigger;
-  skillType: string;
+  skillType: SkillType;
   needsManualReview: boolean;
 }
 
@@ -51,6 +92,7 @@ export interface ItemCard {
     | 'gain_energy_doof'
     | 'gain_energy_fireside'
     | 'swap_main_sub'
+    | 'splash_up'
     | 'unknown';
   value: number | null;
   needsManualReview: boolean;
@@ -87,6 +129,7 @@ export interface BattleCharacter extends CharacterCard {
   isDead: boolean;
   isResting: boolean;
   isMain: boolean;
+  isSkillDisabled?: boolean; // New field
   tempEffects?: {
     type: string;
     value?: number;

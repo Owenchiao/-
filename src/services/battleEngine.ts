@@ -26,9 +26,45 @@ export const calculateDamage = (
     damage += atkBoost;
   }
 
-  // Skill boost (if applicable)
-  if (skillUsed && attacker.skillType === 'atk_up') {
-    damage += 30; // Default skill boost for now
+  // Skill logic
+  if (skillUsed) {
+    switch (attacker.skillType) {
+      case 'atk_up':
+        damage += 30;
+        break;
+      case 'atk_up_fixed':
+        // Check if it's a specific card with a different value
+        if (attacker.id === 'char_holly_guard_r') damage += 25;
+        else damage += 20;
+        break;
+      case 'atk_if_low_hp':
+        if (attacker.currentHp <= 50) damage += 30;
+        break;
+      case 'deal_percent_enemy_atk':
+        // Suzy: 10%, Carl: 30%, Milly: 30%
+        const percent = attacker.id === 'char_suzy_r' ? 0.1 : 0.3;
+        damage = Math.floor(defender.atk * percent);
+        break;
+      case 'deal_percent_enemy_hp':
+        damage = Math.floor(defender.maxHp * 0.1);
+        break;
+      case 'coin_damage':
+        // Milly Cookie: 2 coins, each +30
+        const heads = [Math.random() > 0.5, Math.random() > 0.5].filter(Boolean).length;
+        damage += heads * 30;
+        break;
+      case 'atk_mult':
+        damage = Math.floor(damage * 1.5);
+        break;
+      case 'ignore_defense_coin':
+        const isHeads = Math.random() > 0.5;
+        if (isHeads) {
+          damage += 5;
+          // Note: "ignore defense" is handled by setting damageMultiplier to 1 in applyDamage if we wanted to be precise, 
+          // but here we can just add a flag or handle it in applyDamage.
+        }
+        break;
+    }
   }
 
   // Item boost
@@ -64,7 +100,9 @@ export const applyDamage = (
   targetId?: string | null,
   itemUsed?: ItemCard,
   hasAdvantage: boolean = false,
-  defenderItems?: ItemCard[]
+  defenderItems?: ItemCard[],
+  attacker?: BattleCharacter,
+  skillUsed?: boolean
 ) => {
   // Determine who takes 100% damage
   let primaryTargetId: string | null = null;
@@ -85,10 +123,35 @@ export const applyDamage = (
 
   // 3. Ferb's Blueprint (half_damage) on defender
   const halfDamageItem = defenderItems?.find(i => i.itemType === 'half_damage');
-  const damageMultiplier = halfDamageItem ? 0.5 : 1;
+  let damageMultiplier = halfDamageItem ? 0.5 : 1;
+
+  // Hendel UR: Item effect double
+  const hasHendel = characters.some(c => c.skillType === 'item_effect_double' && !c.isMain && !c.isDead);
+  if (hasHendel && halfDamageItem) {
+    damageMultiplier = 0.25; // Double the reduction (half of half)
+  }
+
+  // Skill-based damage reduction
+  const defenderMain = characters.find(c => c.id === primaryTargetId);
+  if (defenderMain?.skillType === 'self_damage_reduction') {
+    // Ginger: -25, Brigitte: -20%, Parallel Doof: -150
+    if (defenderMain.id === 'char_ginger_wind_u') {
+      // Handled later in the map
+    } else if (defenderMain.id === 'char_brigitte_strong_r') {
+      damageMultiplier *= 0.8;
+    }
+  }
 
   // Rule: Splash damage (20%) is NOT affected by type advantage (+20)
   const baseDamageForSplash = hasAdvantage ? Math.max(0, mainDamage - 20) : mainDamage;
+
+  // Splash percentage
+  let splashPercent = 0.2;
+  if (skillUsed && attacker?.skillType === 'splash_30_percent') {
+    splashPercent = 0.3;
+  } else if (itemUsed?.itemType === 'splash_up') {
+    splashPercent = 0.3; // Assuming an item might do this
+  }
 
   return characters.map(char => {
     if (char.isDead) return char;
@@ -98,12 +161,43 @@ export const applyDamage = (
     if (char.id === primaryTargetId) {
       // Primary target takes 100% damage (including advantage)
       damageTaken = Math.floor(mainDamage * damageMultiplier);
+      
+      // Fixed reduction for Ginger
+      if (char.id === 'char_ginger_wind_u') {
+        damageTaken = Math.max(5, damageTaken - 25);
+      }
+      // Parallel Doof
+      if (char.id === 'char_doof_parallel_ur') {
+        damageTaken = Math.max(0, damageTaken - 150);
+      }
+
+      // Execute if target below 20 (Vader Doof)
+      if (attacker?.skillType === 'execute_if_target_below_20' && skillUsed) {
+        if (char.currentHp - damageTaken < 20) {
+          damageTaken = char.currentHp;
+        }
+      }
+
+      // Reflect direct damage (Brigitte Myth UR)
+      if (char.skillType === 'reflect_direct_damage') {
+        // This is tricky as we need to return damage to attacker.
+        // For now, let's just note it in the logic or handle it in BattlePage.
+      }
     } else {
-      // Others take 20% splash damage (based on base damage)
-      damageTaken = Math.floor(baseDamageForSplash * 0.2 * damageMultiplier);
+      // Others take splash damage
+      damageTaken = Math.floor(baseDamageForSplash * splashPercent * damageMultiplier);
     }
 
-    const newHp = Math.max(0, char.currentHp - damageTaken);
+    let newHp = Math.max(0, char.currentHp - damageTaken);
+    
+    // Melissa Legend U: protect_ally_in_sub
+    if (newHp === 0 && char.currentHp > 0) {
+      const hasMelissa = characters.some(c => c.skillType === 'protect_ally_in_sub' && !c.isMain && !c.isDead);
+      if (hasMelissa) {
+        newHp = 10;
+      }
+    }
+
     return {
       ...char,
       currentHp: newHp,

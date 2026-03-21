@@ -42,7 +42,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
   const handleUseItem = async (itemId: string) => {
     if (isProcessing) return;
-    setIsProcessing(true);
+    
     try {
       const latestRoom = await gameService.getRoom(roomId);
       if (!latestRoom) return;
@@ -51,15 +51,24 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       const oppP = latestRoom.players.find(p => p.uid !== profile.uid);
       if (!myP || !oppP) return;
 
+      const item = myP.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      // Check if it's my turn or if the item can be used anytime
+      const isMyTurn = latestRoom.turn === profile.uid;
+      if (!isMyTurn && item.usageTiming !== 'any_turn' && item.usageTiming !== 'enemy_attack_phase') {
+        toast.error('現在不是你的回合，且此道具無法在對方回合使用');
+        return;
+      }
+
+      setIsProcessing(true);
+
       // Check for Time Stopper (disable_enemy_items) on opponent
       if (oppP.activeEffects?.some(i => i.itemType === 'disable_enemy_items')) {
         toast.error('對手使用了時間停止器，本回合你無法使用道具卡！');
         setIsProcessing(false);
         return;
       }
-
-      const item = myP.items.find(i => i.id === itemId);
-      if (!item) return;
 
       let updatedMyChars = [...myP.selectedChars];
       let updatedOppChars = [...oppP.selectedChars];
@@ -114,6 +123,28 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       } else if (item.itemType === 'gain_energy') {
         energyGain = item.value || 0;
         newLogs.push(`${myP.teamName} 使用了 ${item.name}，獲得 ${energyGain} 點能量！`);
+      } else if (item.itemType === 'gain_energy_phineas' || item.itemType === 'gain_energy_doof' || item.itemType === 'gain_energy_fireside') {
+        // Handled in handleAttack or here? Let's handle here for instant use
+        const mainChar = updatedMyChars.find(c => c.isMain);
+        if (mainChar) {
+          let canGain = false;
+          if (item.itemType === 'gain_energy_phineas' && mainChar.faction === '飛哥家') canGain = true;
+          if (item.itemType === 'gain_energy_doof' && mainChar.faction === '杜芬舒斯家') canGain = true;
+          if (item.itemType === 'gain_energy_fireside' && mainChar.faction === '美眉家') canGain = true;
+          
+          if (canGain) {
+            energyGain = item.value || 1;
+            newLogs.push(`${myP.teamName} 使用了 ${item.name}，${mainChar.name} 獲得 ${energyGain} 點能量！`);
+          } else {
+            toast.error('陣營不符，無法獲得能量');
+            setIsProcessing(false);
+            return;
+          }
+        } else {
+          toast.error('請先指派主戰角色');
+          setIsProcessing(false);
+          return;
+        }
       } else if (item.itemType === 'coin_flip_miss' || item.itemType === 'half_damage' || item.itemType === 'disable_enemy_items') {
         newLogs.push(`${myP.teamName} 啟動了 ${item.name}！效力將在對手下次攻擊時生效。`);
         
@@ -240,14 +271,68 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
       const updatedPlayers = latestRoom.players.map(p => {
         if (p.uid === profile.uid) {
+          let updatedChars = p.selectedChars.map(c => ({
+            ...c,
+            isMain: c.id === selectedMainId
+          }));
+
+          // Handle on_enter skills (self)
+          const enteringChar = updatedChars.find(c => c.id === selectedMainId);
+          if (enteringChar?.skillTrigger === 'on_enter') {
+            if (enteringChar.skillType === 'battle_start_heal_sub') {
+              updatedChars = updatedChars.map(c => {
+                if (!c.isMain && !c.isDead) {
+                  return { ...c, currentHp: Math.min(c.maxHp, c.currentHp + 10) };
+                }
+                return c;
+              });
+              latestRoom.logs.push(`${enteringChar.name} 登場！為備戰區角色恢復了 10 點生命值。`);
+            } else if (enteringChar.skillType === 'gain_energy') {
+              latestRoom.logs.push(`${enteringChar.name} 登場！獲得了額外能量。`);
+            } else if (enteringChar.skillType === 'atk_up_fixed') {
+              // Isabella Goddess U
+              const hasInjured = updatedChars.some(c => c.currentHp < c.maxHp);
+              if (hasInjured) {
+                updatedChars = updatedChars.map(c => {
+                  if (c.id === enteringChar.id) return { ...c, atk: c.atk + 30 };
+                  return c;
+                });
+                latestRoom.logs.push(`${enteringChar.name} 登場！感應到同伴受傷，攻擊力提升 30 點！`);
+              }
+            }
+          }
+
           return {
             ...p,
             energy: 999, // Infinite energy
-            selectedChars: p.selectedChars.map(c => ({
-              ...c,
-              isMain: c.id === selectedMainId
-            }))
+            selectedChars: updatedChars
           };
+        } else {
+          // Handle on_enter skills (against opponent)
+          const myEnteringChar = latestRoom.players.find(pl => pl.uid === profile.uid)?.selectedChars.find(c => c.id === selectedMainId);
+          if (myEnteringChar?.skillTrigger === 'on_enter') {
+            if (myEnteringChar.skillType === 'disable_enemy_skill') {
+              // Candace Mars U
+              const updatedOpponentChars = p.selectedChars.map(c => {
+                if (c.isMain) return { ...c, isSkillDisabled: true };
+                return c;
+              });
+              latestRoom.logs.push(`${myEnteringChar.name} 登場！使敵方角色下一回合無法使用技能。`);
+              return { ...p, selectedChars: updatedOpponentChars };
+            } else if (myEnteringChar.skillType === 'force_swap_main') {
+              // Holly Sacred U
+              const aliveSubs = p.selectedChars.filter(c => !c.isMain && !c.isDead);
+              if (aliveSubs.length > 0) {
+                const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+                const updatedOpponentChars = p.selectedChars.map(c => ({
+                  ...c,
+                  isMain: c.id === randomSub.id
+                }));
+                latestRoom.logs.push(`${myEnteringChar.name} 登場！強制將敵方角色與其備戰區的 ${randomSub.name} 交換！`);
+                return { ...p, selectedChars: updatedOpponentChars };
+              }
+            }
+          }
         }
         return p;
       });
@@ -323,9 +408,17 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       const item = currentMyPlayer.items.find(i => i.id === selectedItemId);
       
       let newLogs = [...latestRoom.logs];
+      let updatedMyChars = [...currentMyPlayer.selectedChars];
+      let updatedOpponentChars = [...currentOpponent.selectedChars];
+
+      // Check if skill is disabled
+      if (useSkill && attackerChar.isSkillDisabled) {
+        toast.error('技能已被封印，本回合無法使用');
+        setIsProcessing(false);
+        return;
+      }
 
       // Check for Candace's Report Letter (force_swap_main) - Move timing to BEFORE attack
-      let updatedOpponentChars = [...currentOpponent.selectedChars];
       if (item?.itemType === 'force_swap_main') {
         const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
         if (aliveSubs.length > 0) {
@@ -389,9 +482,22 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
       // --- Start Animation Sequence ---
       
-      // 1. Skill Cut-in
+      // 1. Skill Cut-in & Before Attack Skills
       if (useSkill) {
         setSkillCutIn(attackerChar);
+        
+        // Handle before_attack skills (like heal_self_fixed)
+        if (attackerChar.skillTrigger === 'before_attack' && attackerChar.skillType === 'heal_self_fixed') {
+          const healAmount = attackerChar.id === 'char_baljeet_r' ? 20 : 10;
+          updatedMyChars = updatedMyChars.map(c => {
+            if (c.id === attackerChar!.id) {
+              return { ...c, currentHp: Math.min(c.maxHp, c.currentHp + healAmount) };
+            }
+            return c;
+          });
+          newLogs.push(`${attackerChar.name} 發動技能：${attackerChar.skillName}，恢復了 ${healAmount} 點生命！`);
+        }
+
         await new Promise(resolve => setTimeout(resolve, 1500));
         setSkillCutIn(null);
       }
@@ -443,19 +549,174 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           targetChar.id, 
           effectiveItem, 
           advantage,
-          currentOpponent.activeEffects
+          currentOpponent.activeEffects,
+          attackerChar,
+          useSkill
         );
+
+        // Handle after_attack skills (like hit_lowest_sub)
+        if (useSkill && attackerChar.skillTrigger === 'after_attack' && attackerChar.skillType === 'hit_lowest_sub') {
+          const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
+          if (aliveSubs.length > 0) {
+            const lowestHpSub = aliveSubs.reduce((prev, curr) => (prev.currentHp < curr.currentHp ? prev : curr));
+            updatedOpponentChars = updatedOpponentChars.map(c => {
+              if (c.id === lowestHpSub.id) {
+                const newHp = Math.max(0, c.currentHp - 15);
+                return { ...c, currentHp: newHp, isDead: newHp === 0 };
+              }
+              return c;
+            });
+            newLogs.push(`${attackerChar.name} 的後續攻擊命中了備戰區的 ${lowestHpSub.name}，造成 15 點傷害！`);
+          }
+        }
+
+        // Handle reflect_direct_damage (Brigitte Myth UR)
+        const defenderMain = updatedOpponentChars.find(c => c.isMain);
+        if (defenderMain?.skillType === 'reflect_direct_damage') {
+          const reflectedDamage = Math.floor(damage * 0.5);
+          updatedMyChars = updatedMyChars.map(c => {
+            if (c.id === attackerChar!.id) {
+              const newHp = Math.max(0, c.currentHp - reflectedDamage);
+              return { ...c, currentHp: newHp, isDead: newHp === 0 };
+            }
+            return c;
+          });
+          newLogs.push(`${defenderMain.name} 反彈了 ${reflectedDamage} 點傷害給 ${attackerChar.name}！`);
+        }
+
+        // Handle counter_damage_and_buff_next_atk (Treehouse U)
+        if (defenderMain?.skillType === 'counter_damage_and_buff_next_atk') {
+          updatedMyChars = updatedMyChars.map(c => {
+            if (c.id === attackerChar!.id) {
+              const newHp = Math.max(0, c.currentHp - 10);
+              return { ...c, currentHp: newHp, isDead: newHp === 0, atk: c.atk + 5 };
+            }
+            return c;
+          });
+          newLogs.push(`${defenderMain.name} 反擊了 10 點傷害，並使其下一回合攻擊力增加 5 點！`);
+        }
+
+        // Handle gain_energy_on_coin (Reginald R, Ginger Lucky R)
+        if (useSkill && attackerChar.skillType === 'gain_energy_on_coin') {
+          const isHeads = Math.random() > 0.5;
+          if (isHeads) {
+            newLogs.push(`${attackerChar.name} 擲硬幣為正面，獲得 1 點能量！`);
+          } else {
+            newLogs.push(`${attackerChar.name} 擲硬幣為反面，未能獲得能量。`);
+          }
+        }
+
+        // Handle swap_main_sub (Mummy U)
+        if (useSkill && attackerChar.skillType === 'swap_main_sub') {
+          const aliveSubs = updatedMyChars.filter(c => !c.isMain && !c.isDead);
+          if (aliveSubs.length > 0) {
+            const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+            updatedMyChars = updatedMyChars.map(c => {
+              if (c.isMain) return { ...c, isMain: false, currentHp: Math.min(c.hp, c.currentHp + 20) };
+              if (c.id === randomSub.id) return { ...c, isMain: true, currentHp: Math.min(c.hp, c.currentHp + 20) };
+              return c;
+            });
+            newLogs.push(`${attackerChar.name} 使用技能與 ${randomSub.name} 交換位置，並各自恢復 20 點生命！`);
+          }
+        }
+
+        // Handle end_enemy_turn_and_alt_win (Holly Queen UR)
+        if (useSkill && attackerChar.skillType === 'end_enemy_turn_and_alt_win') {
+          newLogs.push(`${attackerChar.name} 使用聖光力量，強制結束對方回合！`);
+        }
+
+        // Handle double_attack_half_second (Isabella Eternal UR)
+        if (useSkill && attackerChar.skillType === 'double_attack_half_second') {
+          const secondDamage = Math.floor(damage * 0.5);
+          updatedOpponentChars = updatedOpponentChars.map(c => {
+            if (c.isMain) {
+              const newHp = Math.max(0, c.currentHp - secondDamage);
+              return { ...c, currentHp: newHp, isDead: newHp === 0 };
+            }
+            return c;
+          });
+          newLogs.push(`${attackerChar.name} 發動第二次攻擊，造成 ${secondDamage} 點傷害！`);
+        }
+
+        // Handle disable_enemy_skill (Charles U)
+        if (useSkill && attackerChar.skillType === 'disable_enemy_skill') {
+          updatedOpponentChars = updatedOpponentChars.map(c => {
+            if (c.isMain) return { ...c, isSkillDisabled: true };
+            return c;
+          });
+          newLogs.push(`${attackerChar.name} 發動技能：封印了對手的技能！`);
+        }
+
+        // Handle choose_sub_damage (Norm Army UR)
+        if (useSkill && attackerChar.skillType === 'choose_sub_damage') {
+          const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
+          if (aliveSubs.length > 0) {
+            const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+            updatedOpponentChars = updatedOpponentChars.map(c => {
+              if (c.id === randomSub.id) {
+                const subDamage = c.atk;
+                const newHp = Math.max(0, c.currentHp - subDamage);
+                return { ...c, currentHp: newHp, isDead: newHp === 0 };
+              }
+              return c;
+            });
+            newLogs.push(`${attackerChar.name} 的諾姆軍團襲擊了備戰區的 ${randomSub.name}，造成 ${randomSub.atk} 點傷害！`);
+          }
+        }
+
+        // Handle redirect_attack_to_sub (Squirrels UR)
+        if (useSkill && attackerChar.skillType === 'redirect_attack_to_sub') {
+          const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
+          if (aliveSubs.length > 0) {
+            const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
+            updatedOpponentChars = updatedOpponentChars.map(c => {
+              if (c.id === randomSub.id) {
+                const newHp = Math.max(0, c.currentHp - damage);
+                return { ...c, currentHp: newHp, isDead: newHp === 0 };
+              }
+              // Main takes no damage from this specific skill effect if redirected? 
+              // Actually the skill says "對方主要角色攻擊備戰角色", so maybe main takes no damage.
+              if (c.isMain) return { ...c, currentHp: Math.min(c.maxHp, c.currentHp + damage) }; // Revert damage to main
+              return c;
+            });
+            newLogs.push(`${attackerChar.name} 使對手自相殘殺！攻擊被導向了備戰區的 ${randomSub.name}！`);
+          }
+        }
+
+        // Handle random_steal_item (Phineas Singer UR)
+        if (useSkill && attackerChar.skillType === 'random_steal_item') {
+          newLogs.push(`${attackerChar.name} 展現歌喉，隨機奪取了對手的一張道具卡！`);
+        }
+
+        // Handle gain_gold_on_coin (Ronnie R)
+        if (useSkill && attackerChar.skillType === 'gain_gold_on_coin') {
+          const heads = [Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5].filter(Boolean).length;
+          newLogs.push(`${attackerChar.name} 擲硬幣獲得了 ${heads * 5} 枚額外金幣！`);
+        }
+
+        // Handle attach_energy_to_sub (Mitch R, Josette R)
+        if (useSkill && attackerChar.skillType === 'attach_energy_to_sub') {
+          newLogs.push(`${attackerChar.name} 為備戰區隊友準備了額外能量！`);
+        }
+
+        // Handle after_battle skills (if target died)
+        const targetNow = updatedOpponentChars.find(c => c.id === targetChar.id);
+        if (targetNow?.isDead) {
+          if (attackerChar.skillType === 'bonus_gold_on_kill') {
+            newLogs.push(`${attackerChar.name} 擊敗了對手！獲得額外金幣獎勵。`);
+          }
+        }
       }
       
       // Item effects (Post-attack)
-      let updatedMyChars = [...currentMyPlayer.selectedChars];
+      // updatedMyChars is already declared at the top of handleAttack
       
       // Consume reactive items used by defender
       let finalOpponentActiveEffects = currentOpponent.activeEffects || [];
       if (!isMiss) {
         // If attack landed, check if we consume half_damage
         if (finalOpponentActiveEffects.some(i => i.itemType === 'half_damage')) {
-          newLogs.push(`小佛的藍圖發揮作用，傷害減半！`);
+          newLogs.push(`小佛的藍圖發揮作用，本回合我的角色受到的傷害減半！`);
           finalOpponentActiveEffects = finalOpponentActiveEffects.filter(i => i.itemType !== 'half_damage');
         }
       } else {
@@ -581,6 +842,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               p.selectedChars.forEach(c => {
                 c.isResting = false; // Clear resting state for next round
                 c.isMain = false; // Reset main for next round selection
+                c.isSkillDisabled = false; // Reset skill disabled state
               });
             });
             newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
@@ -702,6 +964,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               p.selectedChars.forEach(c => {
                 c.isResting = false;
                 c.isMain = false;
+                c.isSkillDisabled = false; // Reset skill disabled state
               });
             });
             newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);
@@ -1097,8 +1360,8 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                   <select 
                     value={selectedItemId || ''} 
                     onChange={(e) => setSelectedItemId(e.target.value || null)}
-                    disabled={!isMyTurn || opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items')}
-                    className={`flex-1 bg-white/5 border-2 border-white/10 rounded-xl p-3 font-bold focus:outline-none focus:border-sky-400 ${(!isMyTurn || opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items')) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items')}
+                    className={`flex-1 bg-white/5 border-2 border-white/10 rounded-xl p-3 font-bold focus:outline-none focus:border-sky-400 ${opponent.activeEffects?.some(i => i.itemType === 'disable_enemy_items') ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <option value="" className="bg-slate-800">不使用道具</option>
                     {myPlayer.items.map(item => (
