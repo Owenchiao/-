@@ -651,19 +651,6 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           newLogs.push(`${attackerChar.name} 使用聖光力量，強制結束對方回合！`);
         }
 
-        // Handle double_attack_half_second (Isabella Eternal UR)
-        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'double_attack_half_second') {
-          const secondDamage = Math.floor(damage * 0.5);
-          updatedOpponentChars = updatedOpponentChars.map(c => {
-            if (c.isMain) {
-              const newHp = Math.max(0, c.currentHp - secondDamage);
-              return { ...c, currentHp: newHp, isDead: newHp === 0 };
-            }
-            return c;
-          });
-          newLogs.push(`${attackerChar.name} 發動第二次攻擊，造成 ${secondDamage} 點傷害！`);
-        }
-
         // Handle disable_enemy_skill (Charles U)
         if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'disable_enemy_skill') {
           updatedOpponentChars = updatedOpponentChars.map(c => {

@@ -50,7 +50,6 @@ export type SkillType =
   | 'choose_sub_damage'
   | 'redirect_attack_to_sub'
   | 'end_enemy_turn_and_alt_win'
-  | 'double_attack_half_second'
   | 'reflect_direct_damage'
   | 'attach_energy_to_sub'
   | 'gain_gold_on_coin'

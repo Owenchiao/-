@@ -100,6 +100,6 @@ export const CARDS: CharacterCard[] = [
 
   // 【美眉家 - 金卡 UR】
   { id: "char_holly_queen_ur", type: "character", name: "聖光女王霍麗", faction: "美眉家", rarity: "UR", atk: 140, hp: 220, skillName: null, skillDescription: "強制結束對方回合；若場上三回合結束後我方僅剩此角色卡存活，則判我方勝利", skillEnergyCost: 2, skillTrigger: "on_attack", skillType: "end_enemy_turn_and_alt_win", needsManualReview: false },
-  { id: "char_isabella_eternal_ur", type: "character", name: "永恆女神伊莎貝拉", faction: "美眉家", rarity: "UR", atk: 155, hp: 200, skillName: null, skillDescription: "一回合內可攻擊兩次但第二次只能給對方一半的傷害（此技能不消耗能量點，視為被動技能）", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "double_attack_half_second", needsManualReview: false },
+  { id: "char_isabella_eternal_ur", type: "character", name: "永恆女神伊莎貝拉", faction: "美眉家", rarity: "UR", atk: 155, hp: 200, skillName: null, skillDescription: "總攻擊力*1.5倍（此技能不消耗能量點，視為被動技能）", skillEnergyCost: 0, skillTrigger: "on_attack", skillType: "atk_mult", needsManualReview: false },
   { id: "char_brigitte_myth_ur", type: "character", name: "神話布麗姬", faction: "美眉家", rarity: "UR", atk: 145, hp: 170, skillName: null, skillDescription: "反彈50%直接傷害給對方（此技能不消耗能量點，視為被動技能）", skillEnergyCost: 0, skillTrigger: "on_defend", skillType: "reflect_direct_damage", needsManualReview: false },
 ];
