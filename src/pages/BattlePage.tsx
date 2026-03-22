@@ -411,11 +411,12 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       let updatedMyChars = [...currentMyPlayer.selectedChars];
       let updatedOpponentChars = [...currentOpponent.selectedChars];
 
+      const isSkillActive = useSkill || attackerChar.skillEnergyCost === 0;
+
       // Check if skill is disabled
-      if (useSkill && attackerChar.isSkillDisabled) {
-        toast.error('技能已被封印，本回合無法使用');
-        setIsProcessing(false);
-        return;
+      if (isSkillActive && attackerChar.isSkillDisabled) {
+        if (useSkill) toast.error('技能已被封印，本回合無法使用');
+        // If it's a passive, we just don't trigger it, no toast needed unless it's the main action
       }
 
       // Check for Candace's Report Letter (force_swap_main) - Move timing to BEFORE attack
@@ -465,7 +466,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         attackerChar, 
         targetChar, 
         atkBoostToUse, 
-        useSkill, 
+        isSkillActive, 
         effectiveItem,
         currentOpponent.activeEffects
       );
@@ -483,7 +484,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       // --- Start Animation Sequence ---
       
       // 1. Skill Cut-in & Before Attack Skills
-      if (useSkill) {
+      if (isSkillActive && !attackerChar.isSkillDisabled) {
         setSkillCutIn(attackerChar);
         
         // Handle before_attack skills (like heal_self_fixed)
@@ -495,7 +496,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
             }
             return c;
           });
-          newLogs.push(`${attackerChar.name} 發動技能：${attackerChar.skillName}，恢復了 ${healAmount} 點生命！`);
+          newLogs.push(`${attackerChar.name} 發動技能：${attackerChar.skillName || '被動技能'}，恢復了 ${healAmount} 點生命！`);
         }
 
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -537,7 +538,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         newLogs.push(`攻擊落空！`);
       } else {
         if (advantage) newLogs.push(`屬性克制！額外造成 20 點傷害`);
-        if (useSkill) newLogs.push(`使用技能：${attackerChar.skillName}`);
+        if (isSkillActive && !attackerChar.isSkillDisabled) newLogs.push(`發動技能：${attackerChar.skillName || '被動技能'}`);
         if (effectiveItem) newLogs.push(`使用道具：${effectiveItem.name}`);
       }
 
@@ -551,11 +552,11 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           advantage,
           currentOpponent.activeEffects,
           attackerChar,
-          useSkill
+          isSkillActive && !attackerChar.isSkillDisabled
         );
 
         // Handle after_attack skills (like hit_lowest_sub)
-        if (useSkill && attackerChar.skillTrigger === 'after_attack' && attackerChar.skillType === 'hit_lowest_sub') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillTrigger === 'after_attack' && attackerChar.skillType === 'hit_lowest_sub') {
           const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
           if (aliveSubs.length > 0) {
             const lowestHpSub = aliveSubs.reduce((prev, curr) => (prev.currentHp < curr.currentHp ? prev : curr));
@@ -597,7 +598,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         }
 
         // Handle gain_energy_on_coin (Reginald R, Ginger Lucky R)
-        if (useSkill && attackerChar.skillType === 'gain_energy_on_coin') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'gain_energy_on_coin') {
           const isHeads = Math.random() > 0.5;
           if (isHeads) {
             newLogs.push(`${attackerChar.name} 擲硬幣為正面，獲得 1 點能量！`);
@@ -607,7 +608,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         }
 
         // Handle swap_main_sub (Mummy U)
-        if (useSkill && attackerChar.skillType === 'swap_main_sub') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'swap_main_sub') {
           const aliveSubs = updatedMyChars.filter(c => !c.isMain && !c.isDead);
           if (aliveSubs.length > 0) {
             const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
@@ -621,12 +622,12 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         }
 
         // Handle end_enemy_turn_and_alt_win (Holly Queen UR)
-        if (useSkill && attackerChar.skillType === 'end_enemy_turn_and_alt_win') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'end_enemy_turn_and_alt_win') {
           newLogs.push(`${attackerChar.name} 使用聖光力量，強制結束對方回合！`);
         }
 
         // Handle double_attack_half_second (Isabella Eternal UR)
-        if (useSkill && attackerChar.skillType === 'double_attack_half_second') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'double_attack_half_second') {
           const secondDamage = Math.floor(damage * 0.5);
           updatedOpponentChars = updatedOpponentChars.map(c => {
             if (c.isMain) {
@@ -639,7 +640,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         }
 
         // Handle disable_enemy_skill (Charles U)
-        if (useSkill && attackerChar.skillType === 'disable_enemy_skill') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'disable_enemy_skill') {
           updatedOpponentChars = updatedOpponentChars.map(c => {
             if (c.isMain) return { ...c, isSkillDisabled: true };
             return c;
@@ -648,7 +649,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         }
 
         // Handle choose_sub_damage (Norm Army UR)
-        if (useSkill && attackerChar.skillType === 'choose_sub_damage') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'choose_sub_damage') {
           const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
           if (aliveSubs.length > 0) {
             const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
@@ -665,7 +666,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         }
 
         // Handle redirect_attack_to_sub (Squirrels UR)
-        if (useSkill && attackerChar.skillType === 'redirect_attack_to_sub') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'redirect_attack_to_sub') {
           const aliveSubs = updatedOpponentChars.filter(c => !c.isMain && !c.isDead);
           if (aliveSubs.length > 0) {
             const randomSub = aliveSubs[Math.floor(Math.random() * aliveSubs.length)];
@@ -684,18 +685,18 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
         }
 
         // Handle random_steal_item (Phineas Singer UR)
-        if (useSkill && attackerChar.skillType === 'random_steal_item') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'random_steal_item') {
           newLogs.push(`${attackerChar.name} 展現歌喉，隨機奪取了對手的一張道具卡！`);
         }
 
         // Handle gain_gold_on_coin (Ronnie R)
-        if (useSkill && attackerChar.skillType === 'gain_gold_on_coin') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'gain_gold_on_coin') {
           const heads = [Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5].filter(Boolean).length;
           newLogs.push(`${attackerChar.name} 擲硬幣獲得了 ${heads * 5} 枚額外金幣！`);
         }
 
         // Handle attach_energy_to_sub (Mitch R, Josette R)
-        if (useSkill && attackerChar.skillType === 'attach_energy_to_sub') {
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'attach_energy_to_sub') {
           newLogs.push(`${attackerChar.name} 為備戰區隊友準備了額外能量！`);
         }
 
@@ -1338,13 +1339,19 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
               </div>
 
               {/* Skill Toggle */}
-              <button
-                onClick={() => setUseSkill(!useSkill)}
-                disabled={!isMyTurn || !selectedMainId}
-                className={`w-full py-3 rounded-xl font-black border-2 transition-all flex items-center justify-center gap-2 ${useSkill ? 'bg-purple-500 border-purple-300' : 'bg-white/5 border-white/10'}`}
-              >
-                <Zap className="w-5 h-5" /> 使用技能
-              </button>
+              {myPlayer.selectedChars.find(c => c.isMain)?.skillEnergyCost === 0 ? (
+                <div className="w-full py-3 rounded-xl font-black border-2 border-green-500/50 bg-green-500/10 flex items-center justify-center gap-2 text-green-400">
+                  <Star className="w-5 h-5" /> 被動技能已就緒
+                </div>
+              ) : (
+                <button
+                  onClick={() => setUseSkill(!useSkill)}
+                  disabled={!isMyTurn || !selectedMainId}
+                  className={`w-full py-3 rounded-xl font-black border-2 transition-all flex items-center justify-center gap-2 ${useSkill ? 'bg-purple-500 border-purple-300' : 'bg-white/5 border-white/10'}`}
+                >
+                  <Zap className="w-5 h-5" /> 使用技能
+                </button>
+              )}
 
               {/* Item Selection */}
               <div className="space-y-2">

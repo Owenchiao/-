@@ -27,7 +27,8 @@ export const calculateDamage = (
   }
 
   // Skill logic
-  if (skillUsed) {
+  const isSkillActive = skillUsed || attacker.skillEnergyCost === 0;
+  if (isSkillActive) {
     switch (attacker.skillType) {
       case 'atk_up':
         damage += 30;
@@ -147,7 +148,8 @@ export const applyDamage = (
 
   // Splash percentage
   let splashPercent = 0.2;
-  if (skillUsed && attacker?.skillType === 'splash_30_percent') {
+  const isAttackerSkillActive = skillUsed || attacker?.skillEnergyCost === 0;
+  if (isAttackerSkillActive && attacker?.skillType === 'splash_30_percent') {
     splashPercent = 0.3;
   } else if (itemUsed?.itemType === 'splash_up') {
     splashPercent = 0.3; // Assuming an item might do this
@@ -172,7 +174,8 @@ export const applyDamage = (
       }
 
       // Execute if target below 20 (Vader Doof)
-      if (attacker?.skillType === 'execute_if_target_below_20' && skillUsed) {
+      const isAttackerSkillActive = skillUsed || attacker?.skillEnergyCost === 0;
+      if (attacker?.skillType === 'execute_if_target_below_20' && isAttackerSkillActive) {
         if (char.currentHp - damageTaken < 20) {
           damageTaken = char.currentHp;
         }
