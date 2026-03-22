@@ -150,5 +150,55 @@ export const ITEM_CARDS: ItemCard[] = [
     itemType: "splash_up",
     value: 0.3,
     needsManualReview: false
+  },
+  {
+    id: "item_free_gain",
+    type: "item",
+    name: "不勞而獲",
+    description: "立即獲得 1 點能量點",
+    usageTiming: "any_turn",
+    itemType: "gain_energy",
+    value: 1,
+    needsManualReview: false
+  },
+  {
+    id: "item_energy_drink",
+    type: "item",
+    name: "能量飲料",
+    description: "立即獲得 2 點能量點",
+    usageTiming: "any_turn",
+    itemType: "gain_energy",
+    value: 2,
+    needsManualReview: false
+  },
+  {
+    id: "item_perry_hat",
+    type: "item",
+    name: "泰瑞的帽子",
+    description: "本回合攻擊力提升 20 點",
+    usageTiming: "attack_phase",
+    itemType: "atk_up",
+    value: 20,
+    needsManualReview: false
+  },
+  {
+    id: "item_lucky_coin",
+    type: "item",
+    name: "幸運硬幣",
+    description: "擲硬幣一次，若為正面則獲得 1 點能量點",
+    usageTiming: "any_turn",
+    itemType: "gain_energy", // Special handling in BattlePage
+    value: 1,
+    needsManualReview: false
+  },
+  {
+    id: "item_first_aid",
+    type: "item",
+    name: "急救箱",
+    description: "恢復一名角色 30 點生命值",
+    usageTiming: "any_turn",
+    itemType: "heal",
+    value: 30,
+    needsManualReview: false
   }
 ];

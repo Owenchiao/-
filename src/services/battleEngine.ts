@@ -36,17 +36,19 @@ export const calculateDamage = (
       case 'atk_up_fixed':
         // Check if it's a specific card with a different value
         if (attacker.id === 'char_holly_guard_r') damage += 25;
+        else if (attacker.id === 'char_buford_scary_r') damage += 20;
         else damage += 20;
         break;
       case 'atk_if_low_hp':
         if (attacker.currentHp <= 50) damage += 30;
         break;
       case 'deal_percent_enemy_atk':
-        // Suzy: 10%, Carl: 30%, Milly: 30%
-        const percent = attacker.id === 'char_suzy_r' ? 0.1 : 0.3;
+        // Suzy Dark U: 10%, Carl: 30%, Milly: 30%
+        const percent = (attacker.id === 'char_suzy_r' || attacker.id === 'char_suzy_dark_u') ? 0.1 : 0.3;
         damage = Math.floor(defender.atk * percent);
         break;
       case 'deal_percent_enemy_hp':
+        // Bigfoot U: 10% of maxHp
         damage = Math.floor(defender.maxHp * 0.1);
         break;
       case 'coin_damage':
@@ -149,7 +151,7 @@ export const applyDamage = (
   // Splash percentage
   let splashPercent = 0.2;
   const isAttackerSkillActive = skillUsed || attacker?.skillEnergyCost === 0;
-  if (isAttackerSkillActive && attacker?.skillType === 'splash_30_percent') {
+  if (isAttackerSkillActive && (attacker?.skillType === 'splash_30_percent' || attacker?.skillType === 'splash_damage_30')) {
     splashPercent = 0.3;
   } else if (itemUsed?.itemType === 'splash_up') {
     splashPercent = 0.3; // Assuming an item might do this
@@ -167,6 +169,10 @@ export const applyDamage = (
       // Fixed reduction for Ginger
       if (char.id === 'char_ginger_wind_u') {
         damageTaken = Math.max(5, damageTaken - 25);
+      }
+      // Perry Mech U: self_guard_first_turn
+      if (char.skillType === 'self_guard_first_turn' && char.isFirstTurn) {
+        damageTaken = Math.max(0, damageTaken - 20);
       }
       // Parallel Doof
       if (char.id === 'char_doof_parallel_ur') {

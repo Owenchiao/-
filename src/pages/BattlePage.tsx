@@ -278,6 +278,13 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
 
           // Handle on_enter skills (self)
           const enteringChar = updatedChars.find(c => c.id === selectedMainId);
+          if (enteringChar) {
+            updatedChars = updatedChars.map(c => {
+              if (c.id === selectedMainId) return { ...c, isFirstTurn: true };
+              return { ...c, isFirstTurn: false };
+            });
+          }
+
           if (enteringChar?.skillTrigger === 'on_enter') {
             if (enteringChar.skillType === 'battle_start_heal_sub') {
               updatedChars = updatedChars.map(c => {
@@ -412,6 +419,13 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       let updatedOpponentChars = [...currentOpponent.selectedChars];
 
       const isSkillActive = useSkill || attackerChar.skillEnergyCost === 0;
+
+      // Check for one-time use skills
+      if (useSkill && attackerChar.isSkillUsed) {
+        toast.error('此技能每場戰鬥只能使用一次');
+        setIsProcessing(false);
+        return;
+      }
 
       // Check if skill is disabled
       if (isSkillActive && attackerChar.isSkillDisabled) {
@@ -607,6 +621,17 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
           }
         }
 
+        // Handle extra_energy_attach_on_coin (Kevin Zebra U)
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'extra_energy_attach_on_coin') {
+          const coin1 = Math.random() > 0.5;
+          const coin2 = Math.random() > 0.5;
+          if (coin1 && coin2) {
+            newLogs.push(`${attackerChar.name} 擲出兩次正面！獲得額外能量放置次數。`);
+          } else {
+            newLogs.push(`${attackerChar.name} 擲硬幣結果：${coin1 ? '正' : '反'}${coin2 ? '正' : '反'}，未能獲得額外次數。`);
+          }
+        }
+
         // Handle swap_main_sub (Mummy U)
         if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'swap_main_sub') {
           const aliveSubs = updatedMyChars.filter(c => !c.isMain && !c.isDead);
@@ -707,6 +732,34 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
             newLogs.push(`${attackerChar.name} 擊敗了對手！獲得額外金幣獎勵。`);
           }
         }
+
+        // Mark one-time skills as used
+        if (useSkill && attackerChar.skillType === 'atk_up_fixed' && attackerChar.id === 'char_buford_scary_r') {
+          updatedMyChars = updatedMyChars.map(c => {
+            if (c.id === attackerChar!.id) return { ...c, isSkillUsed: true };
+            return c;
+          });
+        }
+
+        // Handle heal_sub_fixed (Brigitte Iron U) - Passive after battle
+        const attackerNow = updatedMyChars.find(c => c.id === attackerChar.id);
+        if (isSkillActive && !attackerChar.isSkillDisabled && attackerChar.skillType === 'heal_sub_fixed' && attackerNow && !attackerNow.isDead) {
+          const aliveSubs = updatedMyChars.filter(c => !c.isMain && !c.isDead);
+          let healedSubName = '';
+          const subToHeal = aliveSubs.length > 0 ? aliveSubs[Math.floor(Math.random() * aliveSubs.length)] : null;
+          
+          updatedMyChars = updatedMyChars.map(c => {
+            if (c.id === attackerChar!.id) {
+              return { ...c, currentHp: Math.min(c.maxHp, c.currentHp + 15) };
+            }
+            if (subToHeal && c.id === subToHeal.id) {
+              healedSubName = c.name;
+              return { ...c, currentHp: Math.min(c.maxHp, c.currentHp + 15) };
+            }
+            return c;
+          });
+          newLogs.push(`${attackerChar.name} 發動技能：${attackerChar.skillName || '鋼鐵修復'}，為自己${healedSubName ? `與 ${healedSubName}` : ''} 恢復了 15 點生命！`);
+        }
       }
       
       // Item effects (Post-attack)
@@ -766,7 +819,18 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
       let energyGain = 0;
       if (effectiveItem) {
         if (effectiveItem.itemType === 'gain_energy') {
-          energyGain = effectiveItem.value || 0;
+          if (effectiveItem.id === 'item_lucky_coin') {
+            const isHeads = Math.random() > 0.5;
+            if (isHeads) {
+              energyGain = effectiveItem.value || 1;
+              newLogs.push(`幸運硬幣擲出正面！獲得了 ${energyGain} 點能量！`);
+            } else {
+              newLogs.push(`幸運硬幣擲出反面，未能獲得能量。`);
+            }
+          } else {
+            energyGain = effectiveItem.value || 0;
+            newLogs.push(`獲得了 ${energyGain} 點能量！`);
+          }
         } else if (effectiveItem.itemType === 'gain_energy_phineas' && attackerChar.faction === '飛哥家') {
           energyGain = effectiveItem.value || 0;
         } else if (effectiveItem.itemType === 'gain_energy_doof' && attackerChar.faction === '杜芬舒斯家') {
@@ -844,6 +908,7 @@ export default function BattlePage({ roomId, team, profile, onFinish }: Props) {
                 c.isResting = false; // Clear resting state for next round
                 c.isMain = false; // Reset main for next round selection
                 c.isSkillDisabled = false; // Reset skill disabled state
+                c.isFirstTurn = false; // Reset first turn flag
               });
             });
             newLogs.push(`--- 第 ${nextRound} 回合準備階段 ---`);

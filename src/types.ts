@@ -32,6 +32,7 @@ export type SkillType =
   | 'deal_percent_enemy_atk'
   | 'deal_percent_enemy_hp'
   | 'splash_30_percent'
+  | 'splash_damage_30'
   | 'hp_up_fixed'
   | 'self_guard_first_turn'
   | 'hit_lowest_sub'
@@ -54,6 +55,7 @@ export type SkillType =
   | 'attach_energy_to_sub'
   | 'gain_gold_on_coin'
   | 'swap_main_sub'
+  | 'extra_energy_attach_on_coin'
   | 'unknown';
 
 export interface CharacterCard {
@@ -129,7 +131,9 @@ export interface BattleCharacter extends CharacterCard {
   isDead: boolean;
   isResting: boolean;
   isMain: boolean;
-  isSkillDisabled?: boolean; // New field
+  isSkillDisabled?: boolean;
+  isFirstTurn?: boolean;
+  isSkillUsed?: boolean;
   tempEffects?: {
     type: string;
     value?: number;
